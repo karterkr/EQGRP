@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Ninja Pro v29 Ultra</title>
+    <meta name="description" content="High-performance network topology visualizer with analytics and tools." />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+        .app-container { display: flex; height: 100vh; }
+        .sidebar {
+            width: 60px;
+            background: linear-gradient(180deg, #0f172a 0%, #0b1222 100%);
+            border-right: 1px solid #334155;
+            display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px;
+        }
+        .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(120deg,#06b6d4,#0ea5e9); display: grid; place-items: center; font-size: 20px; cursor: pointer; margin-bottom: 8px; }
+        .nav-button { width: 44px; height: 44px; background: transparent; border: none; border-radius: 10px; color: #93a3b8; cursor: pointer; font-size: 18px; display: grid; place-items: center; position: relative; }
+        .nav-button:hover { background: rgba(6, 182, 212, 0.12); color: #06b6d4; }
+        .nav-button.active { background: #06b6d4; color: white; }
+        .nav-tooltip { position: absolute; left: 55px; top: 50%; transform: translateY(-50%); background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; }
+        .nav-button:hover .nav-tooltip { opacity: 1; }
+
+        .main-content { flex: 1; position: relative; overflow: hidden; }
+        .view { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+        .view.active { opacity: 1; pointer-events: auto; }
+
+        /* Canvas */
+        #networkCanvas { width: 100%; height: 100%; cursor: grab; background: radial-gradient(600px 400px at 30% 20%, rgba(6,182,212,.08), transparent 60%); }
+        #networkCanvas:active { cursor: grabbing; }
+
+        .viz-controls { position: absolute; top: 14px; left: 14px; background: rgba(3, 7, 18, 0.9); border: 1px solid #334155; border-radius: 12px; padding: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+        .control-group { display: flex; align-items: center; gap: 8px; padding-right: 10px; border-right: 1px solid #1f2a3b; }
+        .control-group:last-child { border-right: none; padding-right: 0; }
+        .control-label { font-size: 11px; color: #8aa0b8; text-transform: uppercase; letter-spacing: .4px; }
+        .btn { background: rgba(255,255,255,.04); border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; cursor: pointer; font-size: 11px; padding: 6px 10px; letter-spacing: .3px; text-transform: uppercase; }
+        .btn:hover { background: rgba(6,182,212,.12); border-color: #06b6d4; color: #06b6d4; }
+        .btn.active { background: #06b6d4; border-color: #06b6d4; color: white; }
+        .btn-primary { background: linear-gradient(135deg,#06b6d4,#0ea5e9); border-color: #06b6d4; color: #fff; }
+        .btn-primary:hover { filter: brightness(.95); }
+        .filter-select, .form-control { background: rgba(255,255,255,.05); border: 1px solid #334155; color: #e2e8f0; border-radius: 8px; padding: 6px 8px; font-size: 12px; }
+        .range-slider { width: 90px; height: 4px; background: #334155; border-radius: 2px; -webkit-appearance: none; }
+        .range-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #06b6d4; }
+        .range-value { color: #06b6d4; font-size: 11px; min-width: 22px; text-align: center; font-weight: 600; }
+
+        .layout-panel { position: absolute; top: 100%; left: 0; background: rgba(3,7,18,.98); border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-top: 6px; min-width: 320px; display: none; box-shadow: 0 16px 36px rgba(0,0,0,.45); }
+        .layout-section { margin-bottom: 10px; }
+        .layout-section-title { font-size: 11px; color: #8aa0b8; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+
+        .legend-panel { position: absolute; right: 14px; bottom: 14px; background: rgba(3, 7, 18, .9); border: 1px solid #334155; border-radius: 12px; overflow: hidden; }
+        .legend-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #334155; background: rgba(255,255,255,.02); cursor: pointer; }
+        .legend-title { font-size: 12px; font-weight: 700; color: #06b6d4; }
+        .legend-content { padding: 10px 12px; max-height: 280px; overflow: auto; transition: max-height .25s ease, padding .25s ease; }
+        .legend-content.collapsed { max-height: 0; padding: 0 12px; }
+        .legend-section { margin-bottom: 12px; }
+        .legend-section-title { font-size: 11px; color: #8aa0b8; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 6px; }
+        .legend-icon { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 8px; }
+        .legend-line { width: 20px; height: 2px; border-radius: 1px; }
+        .legend-line.dotted { background: repeating-linear-gradient(to right,currentColor 0px,currentColor 3px,transparent 3px,transparent 6px); }
+
+        .device-info { position: absolute; top: 14px; right: 14px; width: 340px; background: rgba(3,7,18,.92); border: 1px solid #334155; border-radius: 12px; padding: 16px; box-shadow: 0 12px 28px rgba(0,0,0,.4); opacity: 0; transform: translateX(10px); pointer-events: none; transition: opacity .2s ease, transform .2s ease; max-height: calc(100vh - 28px); overflow: auto; }
+        .device-info.show { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        .device-info h3 { color: #06b6d4; font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .device-icon { width: 24px; height: 24px; background: #06b6d4; border-radius: 6px; display: grid; place-items: center; font-size: 12px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .info-item { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 10px; }
+        .info-item.full-width { grid-column: 1 / -1; }
+        .info-label { font-size: 10px; color: #8aa0b8; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+        .info-value { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+        .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .status-online { background: #10b981; }
+        .status-offline { background: #ef4444; }
+        .close-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #93a3b8; cursor: pointer; font-size: 18px; }
+        .close-btn:hover { color: #e2e8f0; }
+
+        .status-bar { position: absolute; left: 14px; right: 14px; bottom: 14px; background: rgba(3,7,18,.92); border: 1px solid #334155; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 12px 28px rgba(0,0,0,.35); }
+        .status-group { display: flex; align-items: center; gap: 18px; }
+        .status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .status-label { color: #8aa0b8; }
+        .status-value { color: #e2e8f0; font-weight: 700; }
+
+        .dashboard { padding: 28px; overflow: auto; height: 100%; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+        .dashboard-card { background: rgba(3,7,18,.8); border: 1px solid #334155; border-radius: 12px; padding: 18px; }
+        .card-title { display: flex; align-items: center; gap: 10px; color: #06b6d4; font-weight: 700; margin-bottom: 12px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+        .metric { text-align: center; background: rgba(255,255,255,.03); border-radius: 8px; padding: 12px; }
+        .metric-value { font-size: 22px; color: #06b6d4; font-weight: 800; }
+        .metric-label { font-size: 11px; color: #8aa0b8; text-transform: uppercase; }
+
+        .toast { position: fixed; bottom: 20px; right: 20px; background: rgba(3,7,18,.92); border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; color: #e2e8f0; font-size: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.35); opacity: 0; transform: translateY(10px); transition: all .25s ease; z-index: 2000; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { border-color: #10b981; }
+        .toast.error { border-color: #ef4444; }
+        .toast.warning { border-color: #f59e0b; }
+
+        @media (max-width: 768px) { .viz-controls { flex-direction: column; align-items: stretch; } .device-info { width: 300px; } .status-bar { flex-direction: column; gap: 8px; } }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="logo" title="Network Ninja">🥷</div>
+            <button class="nav-button active" data-view="topology">🌐<div class="nav-tooltip">Topology</div></button>
+            <button class="nav-button" data-view="dashboard">📊<div class="nav-tooltip">Dashboard</div></button>
+            <button class="nav-button" data-view="ingest">📥<div class="nav-tooltip">Data Ingest</div></button>
+            <button class="nav-button" data-view="analytics">📈<div class="nav-tooltip">Analytics</div></button>
+            <button class="nav-button" data-view="tools">🔧<div class="nav-tooltip">Tools</div></button>
+            <button class="nav-button" data-view="monitoring">📡<div class="nav-tooltip">Monitoring</div></button>
+            <button class="nav-button" data-view="security">🛡️<div class="nav-tooltip">Security</div></button>
+            <button class="nav-button" data-view="inventory">📋<div class="nav-tooltip">Inventory</div></button>
+            <button class="nav-button" data-view="logs">📝<div class="nav-tooltip">Logs</div></button>
+        </div>
+
+        <div class="main-content">
+            <div class="view active" id="topology">
+                <canvas id="networkCanvas"></canvas>
+
+                <div class="viz-controls" id="vizControls">
+                    <div class="control-group" style="position: relative;">
+                        <span class="control-label">Layout</span>
+                        <button class="btn" id="layoutToggle">Layouts ▼</button>
+                        <div class="layout-panel" id="layoutPanel">
+                            <div class="layout-section">
+                                <div class="layout-section-title">Basic</div>
+                                <button class="btn active" data-layout="force">Force</button>
+                                <button class="btn" data-layout="circular">Circle</button>
+                                <button class="btn" data-layout="grid">Grid</button>
+                                <button class="btn" data-layout="tree">Tree</button>
+                            </div>
+                            <div class="layout-section">
+                                <div class="layout-section-title">Advanced</div>
+                                <button class="btn" data-layout="hierarchical">Hierarchy</button>
+                                <button class="btn" data-layout="radial">Radial</button>
+                                <button class="btn" data-layout="spring">Spring</button>
+                                <button class="btn" data-layout="fruchterman">Fruchterman</button>
+                                <button class="btn" data-layout="kamada">Kamada-Kawai</button>
+                                <button class="btn" data-layout="layered">Layered</button>
+                                <button class="btn" data-layout="organic">Organic</button>
+                                <button class="btn" data-layout="balloon">Balloon</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Engine</span>
+                        <select class="filter-select" id="layoutEngine">
+                            <option value="none" selected>Native</option>
+                            <option value="d3">D3 Force (lazy)</option>
+                            <option value="dagre">Dagre (lazy)</option>
+                            <option value="elkjs">ELK.js (lazy)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Filter</span>
+                        <select class="filter-select" id="deviceFilter">
+                            <option value="all" selected>All Devices</option>
+                            <option value="router">Routers</option>
+                            <option value="switch">Switches</option>
+                            <option value="firewall">Firewalls</option>
+                            <option value="server">Servers</option>
+                            <option value="workstation">Workstations</option>
+                            <option value="encryptor">Encryptors</option>
+                            <option value="satellite">Satellite Modems</option>
+                            <option value="mobile">Mobile Devices</option>
+                            <option value="printer">Printers</option>
+                            <option value="camera">IP Cameras</option>
+                            <option value="phone">IP Phones</option>
+                        </select>
+                        <select class="filter-select" id="statusFilter">
+                            <option value="all" selected>All Status</option>
+                            <option value="online">Online</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Size</span>
+                        <input type="range" class="range-slider" id="nodeSize" min="14" max="64" value="30" />
+                        <span class="range-value" id="nodeSizeValue">30</span>
+                    </div>
+
+                    <div class="control-group">
+                        <button class="btn active" id="toggleLabels">Labels</button>
+                        <button class="btn" id="togglePhysics">Physics</button>
+                        <button class="btn active" id="toggleConnections">Connections</button>
+                    </div>
+
+                    <div class="control-group">
+                        <button class="btn btn-primary" id="btnGenerate">Generate</button>
+                        <button class="btn" id="btnClear">Clear</button>
+                        <button class="btn" id="btnReset">Reset View</button>
+                        <button class="btn" id="btnAddDevice">Add Device</button>
+                        <button class="btn" id="btnProtocols">Protocols</button>
+                    </div>
+                </div>
+
+                <div class="legend-panel" id="legendPanel">
+                    <div class="legend-header" id="legendHeader">
+                        <div class="legend-title">Legend</div>
+                        <button class="btn" id="legendToggle" style="padding:2px 6px">▼</button>
+                    </div>
+                    <div class="legend-content" id="legendContent">
+                        <div class="legend-section">
+                            <div class="legend-section-title">Device Types</div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#3b82f6"></div><span>Router</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#10b981"></div><span>Switch</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#f59e0b"></div><span>Firewall</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#8b5cf6"></div><span>Server</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#ef4444"></div><span>Workstation</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#dc2626"></div><span>Encryptor</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#059669"></div><span>Satellite Modem</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#7c3aed"></div><span>Mobile</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#0891b2"></div><span>Printer</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#ea580c"></div><span>IP Camera</span></div>
+                            <div class="legend-item"><div class="legend-icon" style="background:#9333ea"></div><span>IP Phone</span></div>
+                        </div>
+                        <div class="legend-section">
+                            <div class="legend-section-title">Connection Types</div>
+                            <div class="legend-item"><div class="legend-line" style="background:#06b6d4"></div><span>Physical/Config</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#10b981"></div><span>TCP</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#f59e0b"></div><span>UDP</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#8b5cf6"></div><span>HTTP/HTTPS</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#ef4444"></div><span>SSH/Telnet</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#06b6d4"></div><span>ICMP</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#84cc16"></div><span>SNMP</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#f97316"></div><span>LLDP</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color:#a855f7"></div><span>NTP</span></div>
+                        </div>
+                        <div class="legend-section">
+                            <div class="legend-section-title">Status</div>
+                            <div class="legend-item"><div style="width:8px;height:8px;background:#10b981;border-radius:50%"></div><span>Online</span></div>
+                            <div class="legend-item"><div style="width:8px;height:8px;background:#ef4444;border-radius:50%"></div><span>Offline</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="device-info" id="deviceInfo">
+                    <button class="close-btn" id="deviceInfoClose">×</button>
+                    <h3><div class="device-icon" id="deviceIcon">🖥️</div><span id="deviceName">Device</span></h3>
+                    <div class="info-grid">
+                        <div class="info-item"><div class="info-label">Status</div><div class="info-value" id="deviceStatus"><span class="status-indicator status-online"></span>Online</div></div>
+                        <div class="info-item"><div class="info-label">Type</div><div class="info-value" id="deviceType">Router</div></div>
+                        <div class="info-item"><div class="info-label">IP Address</div><div class="info-value" id="deviceIP">192.168.1.1</div></div>
+                        <div class="info-item"><div class="info-label">MAC Address</div><div class="info-value" id="deviceMAC">00:00:00:00:00:00</div></div>
+                        <div class="info-item"><div class="info-label">Connections</div><div class="info-value" id="deviceConnections">0</div></div>
+                        <div class="info-item"><div class="info-label">Latency</div><div class="info-value" id="deviceLatency">0ms</div></div>
+                        <div class="info-item full-width"><div class="info-label">Description</div><div class="info-value" id="deviceDescription">-</div></div>
+                        <div class="info-item full-width"><div class="info-label">Interfaces</div><div class="info-value" id="deviceInterfaces"></div></div>
+                    </div>
+                </div>
+
+                <div class="status-bar">
+                    <div class="status-group">
+                        <div class="status-item"><span class="status-label">Nodes:</span><span class="status-value" id="statusNodes">0</span></div>
+                        <div class="status-item"><span class="status-label">Edges:</span><span class="status-value" id="statusEdges">0</span></div>
+                        <div class="status-item"><span class="status-label">Selected:</span><span class="status-value" id="statusSelected">0</span></div>
+                    </div>
+                    <div class="status-group">
+                        <div class="status-item"><span class="status-label">Layout:</span><span class="status-value" id="statusLayout">Force</span></div>
+                        <div class="status-item"><span class="status-label">Engine:</span><span class="status-value" id="statusEngine">Native</span></div>
+                        <div class="status-item"><span class="status-label">Zoom:</span><span class="status-value" id="statusZoom">100%</span></div>
+                        <div class="status-item"><span class="status-label">FPS:</span><span class="status-value" id="statusFPS">60</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="dashboard">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Network Overview</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="totalNodes">0</div><div class="metric-label">Total Nodes</div></div>
+                                <div class="metric"><div class="metric-value" id="onlineNodes">0</div><div class="metric-label">Online</div></div>
+                                <div class="metric"><div class="metric-value" id="totalEdges">0</div><div class="metric-label">Connections</div></div>
+                                <div class="metric"><div class="metric-value" id="avgLatency">0ms</div><div class="metric-label">Avg Latency</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🚀 Quick Actions</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn btn-primary" id="qaGenerate">Generate Test Network</button>
+                                <button class="btn" id="qaClear">Clear Network</button>
+                                <button class="btn" id="qaExport">Export Network</button>
+                                <button class="btn" id="qaImport">Import Config</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">⚡ Performance</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="perfFPS">60</div><div class="metric-label">FPS</div></div>
+                                <div class="metric"><div class="metric-value" id="renderTime">~</div><div class="metric-label">Render</div></div>
+                                <div class="metric"><div class="metric-value" id="memoryUsage">-</div><div class="metric-label">Memory</div></div>
+                                <div class="metric"><div class="metric-value" id="cpuUsage">-</div><div class="metric-label">CPU</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔍 Recent Activity</div>
+                            <div id="recentActivity" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="ingest">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">🚀 Quick Generation</div>
+                            <div class="form-group"><label class="control-label">Network Size</label>
+                                <select class="form-control" id="networkSize">
+                                    <option value="small">Small (10-20)</option>
+                                    <option value="medium" selected>Medium (25-40)</option>
+                                    <option value="large">Large (50-75)</option>
+                                    <option value="enterprise">Enterprise (100-150)</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label class="control-label">Network Type</label>
+                                <select class="form-control" id="networkType">
+                                    <option value="mixed">Mixed</option>
+                                    <option value="datacenter">Data Center</option>
+                                    <option value="campus">Campus</option>
+                                    <option value="branch">Branch</option>
+                                    <option value="cloud">Cloud</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label class="control-label">Include Protocols</label>
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:6px">
+                                    <label class="checkbox-item"><input type="checkbox" id="protocolTCP" checked/> TCP</label>
+                                    <label class="checkbox-item"><input type="checkbox" id="protocolUDP" checked/> UDP</label>
+                                    <label class="checkbox-item"><input type="checkbox" id="protocolHTTP" checked/> HTTP/HTTPS</label>
+                                    <label class="checkbox-item"><input type="checkbox" id="protocolSSH"/> SSH</label>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="btnQuickGenerate">Generate Network</button>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📁 File Import</div>
+                            <div id="dropZone" style="border:2px dashed #334155;border-radius:8px;padding:30px;text-align:center;margin-bottom:12px">
+                                <div style="font-size:40px;margin-bottom:8px">📁</div>
+                                <div>Drop files here or click to browse</div>
+                                <div style="font-size:11px;color:#8aa0b8;margin-top:6px">Supports: .json, .csv</div>
+                            </div>
+                            <input type="file" id="fileInput" multiple style="display:none" accept=".json,.csv" />
+                            <div style="display:flex;gap:8px">
+                                <button class="btn" id="btnBrowseFiles">Browse Files</button>
+                                <button class="btn" id="btnProcessFiles">Process</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔗 API Integration</div>
+                            <div class="form-group"><label class="control-label">Data Source</label>
+                                <select class="form-control" id="apiSource">
+                                    <option value="snmp">SNMP Discovery</option>
+                                    <option value="nmap">Nmap Scan</option>
+                                    <option value="netbox">NetBox API</option>
+                                    <option value="cisco">Cisco DNA Center</option>
+                                    <option value="meraki">Meraki Dashboard</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label class="control-label">Target Range</label>
+                                <input type="text" class="form-control" placeholder="192.168.1.0/24" id="targetRange" />
+                            </div>
+                            <button class="btn btn-primary" id="btnStartDiscovery">Start Discovery</button>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Import History</div>
+                            <div id="importHistory" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="analytics">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">📈 Network Analysis</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnTopologyAnalysis">Topology Analysis</button>
+                                <button class="btn" id="btnCriticalPaths">Critical Paths</button>
+                                <button class="btn" id="btnBottlenecks">Bottlenecks</button>
+                                <button class="btn" id="btnMetrics">Network Metrics</button>
+                                <button class="btn" id="btnGenerateReport">Generate Report</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔍 Security Analysis</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnSecurityScan">Security Scan</button>
+                                <button class="btn" id="btnVulnCheck">Vulnerability Check</button>
+                                <button class="btn" id="btnComplianceAudit">Compliance Audit</button>
+                                <button class="btn" id="btnThreatAnalysis">Threat Analysis</button>
+                                <button class="btn" id="btnRiskAssessment">Risk Assessment</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">⚡ Performance Analysis</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnLatency">Latency Analysis</button>
+                                <button class="btn" id="btnBandwidth">Bandwidth Utilization</button>
+                                <button class="btn" id="btnCapacity">Capacity Planning</button>
+                                <button class="btn" id="btnQos">QoS Analysis</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Recent Analysis</div>
+                            <div id="recentAnalysis" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="tools">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">🔧 Network Tools</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="toolPing">Ping Test</button>
+                                <button class="btn" id="toolTrace">Trace Route</button>
+                                <button class="btn" id="toolPortScan">Port Scan</button>
+                                <button class="btn" id="toolBandwidth">Bandwidth Test</button>
+                                <button class="btn" id="toolDNS">DNS Lookup</button>
+                                <button class="btn" id="toolWhois">WHOIS Lookup</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Export Tools</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="exportPNG">Export PNG</button>
+                                <button class="btn" id="exportSVG">Export SVG</button>
+                                <button class="btn" id="exportJSON">Export JSON</button>
+                                <button class="btn" id="exportCSV">Export CSV</button>
+                                <button class="btn" id="exportReportBtn">Export Report</button>
+                                <button class="btn" id="exportConfigBtn">Export Config</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔄 Automation</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="toolSchedule">Schedule Discovery</button>
+                                <button class="btn" id="toolBackup">Auto Backup</button>
+                                <button class="btn" id="toolHealth">Health Check</button>
+                                <button class="btn" id="toolConfigSync">Config Sync</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🛠️ Utilities</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="utilSubnet">Subnet Calculator</button>
+                                <button class="btn" id="utilMAC">MAC Lookup</button>
+                                <button class="btn" id="utilPassword">Password Generator</button>
+                                <button class="btn" id="utilLogAnalyzer">Log Analyzer</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="monitoring">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">📡 Real-time Monitoring</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnStartMonitoring">Start Monitoring</button>
+                                <button class="btn" id="btnStopMonitoring">Stop Monitoring</button>
+                                <button class="btn" id="btnViewAlerts">View Alerts</button>
+                                <button class="btn" id="btnThresholds">Configure Thresholds</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Performance Metrics</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="metricUptime">-</div><div class="metric-label">Uptime</div></div>
+                                <div class="metric"><div class="metric-value" id="metricBandwidth">-</div><div class="metric-label">Mbps Avg</div></div>
+                                <div class="metric"><div class="metric-value" id="metricLatency">-</div><div class="metric-label">Latency</div></div>
+                                <div class="metric"><div class="metric-value" id="metricLoss">-</div><div class="metric-label">Packet Loss</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🚨 Active Alerts</div>
+                            <div id="activeAlerts" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📈 Trending</div>
+                            <div id="trending" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="security">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">🛡️ Security Overview</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="riskLevel" style="color:#ef4444">High</div><div class="metric-label">Risk Level</div></div>
+                                <div class="metric"><div class="metric-value" id="vulnCount">0</div><div class="metric-label">Vulnerabilities</div></div>
+                                <div class="metric"><div class="metric-value" id="openPorts">0</div><div class="metric-label">Open Ports</div></div>
+                                <div class="metric"><div class="metric-value" id="fwRules">0</div><div class="metric-label">Firewall Rules</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔍 Security Scans</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnVulnScan">Vulnerability Scan</button>
+                                <button class="btn" id="btnSecurityPortScan">Port Scan</button>
+                                <button class="btn" id="btnMalware">Malware Scan</button>
+                                <button class="btn" id="btnConfigAudit">Config Audit</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🚨 Security Alerts</div>
+                            <div id="securityAlerts" style="display:grid;gap:8px;font-size:12px"></div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📋 Compliance</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="btnCIS">CIS Compliance</button>
+                                <button class="btn" id="btnPCI">PCI DSS</button>
+                                <button class="btn" id="btnHIPAA">HIPAA</button>
+                                <button class="btn" id="btnSOX">SOX 404</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="inventory">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Inventory Summary</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="inventoryDevices">0</div><div class="metric-label">Total Devices</div></div>
+                                <div class="metric"><div class="metric-value" id="inventoryConnections">0</div><div class="metric-label">Connections</div></div>
+                                <div class="metric"><div class="metric-value" id="inventoryProtocols">0</div><div class="metric-label">Protocols</div></div>
+                                <div class="metric"><div class="metric-value" id="inventorySubnets">0</div><div class="metric-label">Subnets</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔍 Device Inventory</div>
+                            <div style="margin-bottom:10px"><input type="text" class="form-control" placeholder="Search devices..." id="deviceSearch" /></div>
+                            <div id="deviceInventoryList" style="max-height: 320px; overflow:auto"></div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🌐 Topology Data</div>
+                            <div style="display:grid;gap:10px">
+                                <button class="btn" id="invExportCSV">Export CSV</button>
+                                <button class="btn" id="invExportJSON">Export JSON</button>
+                                <button class="btn" id="invExportXML">Export XML</button>
+                                <button class="btn" id="invRefresh">Refresh</button>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📈 Connection Matrix</div>
+                            <div id="connectionMatrix" style="font-size:11px; max-height: 320px; overflow:auto"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view" id="logs">
+                <div class="dashboard">
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-title">📝 System Logs</div>
+                            <div style="margin-bottom: 10px; display:flex; gap:8px">
+                                <select class="filter-select" id="logLevel">
+                                    <option value="all">All</option>
+                                    <option value="info">Info</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="error">Error</option>
+                                    <option value="debug">Debug</option>
+                                </select>
+                                <button class="btn" id="btnClearLogs">Clear Logs</button>
+                                <button class="btn" id="btnExportLogs">Export</button>
+                            </div>
+                            <div id="logContainer" style="background:rgba(0,0,0,.35);border-radius:8px;padding:10px;height:380px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:11px"></div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">🔍 Network Events</div>
+                            <div id="networkEvents" style="max-height: 380px; overflow:auto"></div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">📊 Log Statistics</div>
+                            <div class="metric-grid">
+                                <div class="metric"><div class="metric-value" id="logCount">0</div><div class="metric-label">Total Logs</div></div>
+                                <div class="metric"><div class="metric-value" id="errorCount">0</div><div class="metric-label">Errors</div></div>
+                                <div class="metric"><div class="metric-value" id="warningCount">0</div><div class="metric-label">Warnings</div></div>
+                                <div class="metric"><div class="metric-value" id="eventCount">0</div><div class="metric-label">Events</div></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="card-title">⚙️ Log Settings</div>
+                            <div class="form-group"><label class="control-label">Log Retention (days)</label><input type="number" class="form-control" value="30" id="logRetention" /></div>
+                            <div class="form-group"><label class="control-label">Auto-refresh</label>
+                                <select class="form-control" id="autoRefresh">
+                                    <option value="0">Disabled</option>
+                                    <option value="5">5 seconds</option>
+                                    <option value="10" selected>10 seconds</option>
+                                    <option value="30">30 seconds</option>
+                                    <option value="60">1 minute</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" id="saveLogSettings">Save Settings</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="device-modal modal" id="addDeviceModal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:2000">
+        <div class="modal-content" style="background:rgba(3,7,18,.98);border:1px solid #334155;border-radius:12px;padding:18px;width:90%;max-width:520px;max-height:80vh;overflow:auto">
+            <div class="modal-header" style="display:flex;align-items:center;gap:8px;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px">
+                <div class="modal-title" style="color:#06b6d4;font-weight:700">Add New Device</div>
+                <button class="modal-close" id="addDeviceClose" style="margin-left:auto;background:none;border:none;color:#93a3b8;font-size:18px;cursor:pointer">×</button>
+            </div>
+            <form id="addDeviceForm">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group"><label class="control-label">Device Name *</label><input type="text" class="form-control" id="fDeviceName" required /></div>
+                    <div class="form-group"><label class="control-label">Device Type *</label>
+                        <select class="form-control" id="fDeviceType" required>
+                            <option value="">Select Type</option>
+                            <option value="router">Router</option>
+                            <option value="switch">Switch</option>
+                            <option value="firewall">Firewall</option>
+                            <option value="server">Server</option>
+                            <option value="workstation">Workstation</option>
+                            <option value="encryptor">Encryptor</option>
+                            <option value="satellite">Satellite Modem</option>
+                            <option value="mobile">Mobile Device</option>
+                            <option value="printer">Printer</option>
+                            <option value="camera">IP Camera</option>
+                            <option value="phone">IP Phone</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="control-label">IP Address *</label><input type="text" class="form-control" id="fDeviceIP" placeholder="192.168.1.1" required /></div>
+                    <div class="form-group"><label class="control-label">MAC Address</label><input type="text" class="form-control" id="fDeviceMAC" placeholder="00:1a:2b:3c:4d:5e" /></div>
+                    <div class="form-group" style="grid-column:1 / -1"><label class="control-label">Description</label><textarea class="form-control" id="fDeviceDescription" rows="3" placeholder="Device description..."></textarea></div>
+                    <div class="form-group"><label class="control-label">Status</label><select class="form-control" id="fDeviceStatus"><option value="online">Online</option><option value="offline">Offline</option></select></div>
+                    <div class="form-group"><label class="control-label">Location</label><input type="text" class="form-control" id="fDeviceLocation" placeholder="Building A, Floor 2" /></div>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+                    <button type="button" class="btn" id="addDeviceCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Protocol Manager Modal -->
+    <div class="device-modal modal" id="protocolModal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:2000">
+        <div class="modal-content" style="background:rgba(3,7,18,.98);border:1px solid #334155;border-radius:12px;padding:18px;width:90%;max-width:520px;max-height:80vh;overflow:auto">
+            <div class="modal-header" style="display:flex;align-items:center;gap:8px;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px">
+                <div class="modal-title" style="color:#06b6d4;font-weight:700">Protocol Manager</div>
+                <button class="modal-close" id="protocolClose" style="margin-left:auto;background:none;border:none;color:#93a3b8;font-size:18px;cursor:pointer">×</button>
+            </div>
+            <div class="form-group"><label class="control-label">Add Custom Protocol</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <input type="text" class="form-control" id="protocolName" placeholder="Protocol Name" />
+                    <input type="number" class="form-control" id="protocolPort" placeholder="Port Number" />
+                    <select class="form-control" id="protocolType"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="both">Both</option></select>
+                    <input type="color" class="form-control" id="protocolColor" value="#06b6d4" />
+                </div>
+                <button class="btn btn-primary" id="btnAddProtocol" style="margin-top:10px">Add Protocol</button>
+            </div>
+            <div class="form-group" style="margin-top:12px"><label class="control-label">Custom Protocols</label>
+                <div class="protocol-list" id="customProtocolList" style="max-height:220px;overflow:auto;border:1px solid #334155;border-radius:8px;padding:8px;background:rgba(255,255,255,.03)"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function(){
+        'use strict';
+
+        // Performance helpers
+        const devicePixelRatioClamped = Math.min(window.devicePixelRatio || 1, 2);
+        const now = () => performance.now();
+
+        // Simple logger
+        const logState = {
+            logs: [],
+            events: [],
+            level: 'all'
+        };
+        function addLog(level, message) {
+            const entry = { ts: new Date().toISOString(), level, message };
+            logState.logs.push(entry);
+            if (logState.logs.length > 2000) logState.logs.shift();
+            updateLogsUI();
+        }
+        function addEvent(message) {
+            const entry = { ts: new Date().toISOString(), message };
+            logState.events.push(entry);
+            if (logState.events.length > 1000) logState.events.shift();
+            updateEventsUI();
+        }
+
+        // Toasts
+        function toast(message, type='success'){
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = message;
+            document.body.appendChild(t);
+            requestAnimationFrame(()=>{ t.classList.add('show'); });
+            setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(), 250); }, 2600);
+        }
+
+        // Icon cache using Path2D and offscreen canvas for crispness
+        class IconFactory {
+            constructor(){ this.cache = new Map(); }
+            get(type, color, size){
+                const key = `${type}|${color}|${size}`;
+                if (this.cache.has(key)) return this.cache.get(key);
+                const off = document.createElement('canvas');
+                const px = Math.ceil(size * devicePixelRatioClamped);
+                off.width = px; off.height = px;
+                const ctx = off.getContext('2d');
+                ctx.scale(devicePixelRatioClamped, devicePixelRatioClamped);
+                ctx.translate(size/2, size/2);
+                ctx.fillStyle = color;
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1.3;
+                this.drawByType(ctx, type, size);
+                this.cache.set(key, off);
+                return off;
+            }
+            drawByType(ctx, type, size){
+                const s = size/2.2;
+                ctx.save();
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#fff';
+                switch(type){
+                    case 'router':
+                        ctx.fillStyle = '#1f2937';
+                        roundRect(ctx, -s, -s/3, 2*s, (2*s)/3, 6); ctx.fill(); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(-s/2, -s/3); ctx.lineTo(-s/2, -s); ctx.moveTo(0, -s/3); ctx.lineTo(0, -s*0.9); ctx.moveTo(s/2, -s/3); ctx.lineTo(s/2, -s); ctx.stroke();
+                        ctx.fillStyle = '#10b981'; ctx.fillRect(-s/3, -s/6, s/8, s/10); ctx.fillRect(s/10, -s/6, s/8, s/10);
+                        break;
+                    case 'switch':
+                        ctx.fillStyle = '#1f2937';
+                        roundRect(ctx, -s, -s/2.4, 2*s, s/1.2, 6); ctx.fill(); ctx.stroke();
+                        ctx.strokeStyle = '#9ca3af';
+                        for(let i=0;i<8;i++){ const x = -s + s/6 + i*(s/6); ctx.strokeRect(x, -s/6, s/12, s/10); }
+                        ctx.fillStyle = '#10b981'; ctx.fillRect(-s/2, s/6, s/12, s/12); ctx.fillStyle = '#f59e0b'; ctx.fillRect(-s/3, s/6, s/12, s/12);
+                        break;
+                    case 'firewall':
+                        ctx.fillStyle = '#1f2937';
+                        shield(ctx, 0, 0, s*0.95); ctx.stroke();
+                        ctx.fillStyle = '#ef4444'; flame(ctx, 0, s/10, s/2.2); ctx.fill();
+                        break;
+                    case 'server':
+                        ctx.fillStyle = '#1f2937';
+                        roundRect(ctx, -s*0.9, -s, s*1.8, s*2, 8); ctx.fill(); ctx.stroke();
+                        ctx.strokeStyle = '#9ca3af';
+                        for(let i=0;i<3;i++){ const y = -s + (i+0.35)*s*0.66; ctx.strokeRect(-s*0.9, y, s*1.8, s*0.5); }
+                        ctx.fillStyle = '#10b981'; ctx.fillRect(s*0.6, -s*0.6, s/8, s/8);
+                        break;
+                    case 'workstation':
+                        ctx.fillStyle = '#1f2937';
+                        roundRect(ctx, -s, -s*0.8, 2*s, s*1.2, 8); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle = '#0b1324'; roundRect(ctx, -s*0.8, -s*0.7, s*1.6, s*0.8, 6); ctx.fill();
+                        ctx.fillStyle = '#fff'; ctx.fillRect(-s/8, s*0.4, s/4, s/10); ctx.fillRect(-s/3, s*0.6, (2*s)/3, s/12);
+                        break;
+                    case 'encryptor':
+                        ctx.fillStyle = '#1f2937'; roundRect(ctx, -s, -s/2, 2*s, s, 8); ctx.fill(); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(0, -s/6, s/4, Math.PI, 0); ctx.stroke(); ctx.fillRect(-s/6, -s/6, s/3, s/3);
+                        ctx.fillStyle = '#0b1324'; ctx.beginPath(); ctx.arc(0, 0, s/12, 0, Math.PI*2); ctx.fill();
+                        break;
+                    case 'satellite':
+                        ctx.fillStyle = '#1f2937'; roundRect(ctx, -s, -s/3, 2*s, (2*s)/3, 8); ctx.fill(); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(0, -s*0.8, s/2.5, 0, Math.PI, true); ctx.stroke();
+                        ctx.strokeStyle = '#9ca3af'; for(let i=1;i<=3;i++){ ctx.beginPath(); ctx.arc(0, -s*0.8, (s/4)*i, -Math.PI/4, -3*Math.PI/4, true); ctx.stroke(); }
+                        break;
+                    case 'mobile':
+                        ctx.fillStyle = '#1f2937'; roundRect(ctx, -s/1.8, -s, s/0.9, s*2, 10); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle = '#0b1324'; roundRect(ctx, -s/2.2, -s*0.7, s/1.1, s*1.4, 8); ctx.fill();
+                        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, s*0.7, s/12, 0, Math.PI*2); ctx.fill();
+                        break;
+                    case 'printer':
+                        ctx.fillStyle = '#1f2937'; roundRect(ctx, -s, -s/2, 2*s, s, 8); ctx.fill(); ctx.stroke();
+                        ctx.fillRect(-s*0.9, s/3, s*1.8, s/6); ctx.fillStyle = '#f8fafc'; ctx.fillRect(-s/2.5, -s/4, s/1.25, s/3);
+                        break;
+                    case 'camera':
+                        ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(0, 0, s/1.8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle = '#0b1324'; ctx.beginPath(); ctx.arc(0, 0, s/3, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#fff'; roundRect(ctx, -s/6, s/1.9, s/3, s/6, 3); ctx.fill();
+                        break;
+                    case 'phone':
+                        ctx.fillStyle = '#1f2937'; roundRect(ctx, -s, -s/2, 2*s, s, 8); ctx.fill(); ctx.stroke();
+                        ctx.fillRect(-s*0.8, -s*0.9, s*1.6, s/6);
+                        ctx.strokeStyle = '#9ca3af';
+                        for(let r=0;r<3;r++){ for(let c=0;c<3;c++){ const x=-s/2 + c*s/3.3; const y=-s/6 + r*s/3.6; ctx.strokeRect(x, y, s/7, s/7); } }
+                        break;
+                    default:
+                        ctx.beginPath(); ctx.arc(0,0,s/2.2,0,Math.PI*2); ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        function roundRect(ctx, x, y, w, h, r){
+            const rr = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+            ctx.beginPath();
+            ctx.moveTo(x+rr, y);
+            ctx.arcTo(x+w, y, x+w, y+h, rr);
+            ctx.arcTo(x+w, y+h, x, y+h, rr);
+            ctx.arcTo(x, y+h, x, y, rr);
+            ctx.arcTo(x, y, x+w, y, rr);
+            ctx.closePath();
+        }
+        function shield(ctx, x, y, s){ ctx.save(); ctx.translate(x,y); ctx.beginPath(); ctx.moveTo(0,-s); ctx.lineTo(-s*0.7, -s*0.4); ctx.lineTo(-s*0.7, s*0.6); ctx.lineTo(0, s); ctx.lineTo(s*0.7, s*0.6); ctx.lineTo(s*0.7, -s*0.4); ctx.closePath(); ctx.restore(); }
+        function flame(ctx, x, y, s){ ctx.save(); ctx.translate(x,y); ctx.beginPath(); ctx.moveTo(0, -s*0.6); ctx.bezierCurveTo(-s*0.6, -s*0.2, -s*0.4, s*0.2, 0, s*0.6); ctx.bezierCurveTo(s*0.4, s*0.2, s*0.6, -s*0.2, 0, -s*0.6); ctx.closePath(); ctx.restore(); }
+
+        // Core engine
+        class NetworkEngine {
+            constructor(){
+                this.canvas = document.getElementById('networkCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.nodes = new Map();
+                this.edges = new Map();
+                this.selectedNodes = new Set();
+                this.camera = { x: 0, y: 0, zoom: 1 };
+                this.isDragging = false;
+                this.dragNode = null;
+                this.lastMousePos = { x: 0, y: 0 };
+                this.animationId = null;
+                this.isDirty = true;
+                this.iconFactory = new IconFactory();
+                this.customProtocols = [];
+                this.monitorTimer = null;
+                this.settings = {
+                    nodeSize: 30,
+                    showLabels: true,
+                    showConnections: true,
+                    physicsEnabled: false,
+                    currentLayout: 'force',
+                    currentEngine: 'none',
+                    deviceFilter: 'all',
+                    statusFilter: 'all'
+                };
+                this.performance = { fps: 60, frameCount: 0, lastTime: 0 };
+                this.lastRenderAt = 0;
+                this._init();
+            }
+            _init(){
+                this._setupCanvas();
+                this._setupUI();
+                this._loop();
+                this._resizeObserver = new ResizeObserver(()=>this._resize());
+                this._resizeObserver.observe(this.canvas);
+                this._resize();
+                addLog('info', 'Engine initialized');
+            }
+            _setupCanvas(){
+                const c = this.canvas; const ctx = this.ctx;
+                const onWheel = (e)=>{ e.preventDefault(); const zf = e.deltaY > 0 ? 0.9 : 1.1; const nz = Math.max(0.25, Math.min(3, this.camera.zoom * zf)); const rect = c.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top; this.camera.x = mx - (mx - this.camera.x) * (nz / this.camera.zoom); this.camera.y = my - (my - this.camera.y) * (nz / this.camera.zoom); this.camera.zoom = nz; document.getElementById('statusZoom').textContent = Math.round(nz*100)+'%'; this.markDirty(); };
+                const onDown = (e)=>{ const p = this._toWorld(e); const n = this._hit(p.x,p.y); if(n){ this.dragNode = n; this.isDragging = true; if(!e.ctrlKey && !e.metaKey) this.selectedNodes.clear(); this.selectedNodes.add(n.id); this._updateStats(); this.showDeviceInfo(n); } else { this.selectedNodes.clear(); this.hideDeviceInfo(); } this.lastMousePos = { x: e.clientX, y: e.clientY }; this.markDirty(); };
+                const onMove = (e)=>{ if(this.isDragging && this.dragNode){ const dx=(e.clientX - this.lastMousePos.x)/this.camera.zoom; const dy=(e.clientY - this.lastMousePos.y)/this.camera.zoom; const m=this.settings.nodeSize; this.dragNode.x = clamp(this.dragNode.x+dx, m, this.canvas.width/this.dpr - m); this.dragNode.y = clamp(this.dragNode.y+dy, m, this.canvas.height/this.dpr - m); this.lastMousePos = { x: e.clientX, y: e.clientY }; this.markDirty(); } };
+                const onUp = ()=>{ this.isDragging = false; this.dragNode = null; };
+                c.addEventListener('wheel', onWheel, { passive: false });
+                c.addEventListener('mousedown', onDown);
+                c.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+                c.addEventListener('click', (e)=>{ const p=this._toWorld(e); const n=this._hit(p.x,p.y); if(n) this.showDeviceInfo(n); });
+            }
+            _setupUI(){
+                // Navigation
+                document.querySelectorAll('.nav-button').forEach(btn=>{
+                    btn.addEventListener('click', (e)=>{
+                        const view = btn.dataset.view; document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(view).classList.add('active');
+                        document.querySelectorAll('.nav-button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+                        this.markDirty();
+                    });
+                });
+                // Layout panel toggle
+                const layoutToggle = document.getElementById('layoutToggle');
+                const layoutPanel = document.getElementById('layoutPanel');
+                layoutToggle.addEventListener('click', ()=>{ layoutPanel.style.display = layoutPanel.style.display==='block'?'none':'block'; });
+                document.addEventListener('click', (e)=>{ if(!layoutPanel.contains(e.target) && e.target!==layoutToggle){ layoutPanel.style.display='none'; } });
+                // Layout buttons
+                document.querySelectorAll('[data-layout]').forEach(btn=>{
+                    btn.addEventListener('click', ()=>{ this._setLayout(btn.dataset.layout); document.querySelectorAll('[data-layout]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); layoutPanel.style.display='none'; });
+                });
+                // Engine selector
+                document.getElementById('layoutEngine').addEventListener('change', (e)=>{ this.settings.currentEngine = e.target.value; document.getElementById('statusEngine').textContent = e.target.options[e.target.selectedIndex].text; this.applyLayout(this.settings.currentLayout, true); });
+                // Filters
+                document.getElementById('deviceFilter').addEventListener('change', (e)=>{ this.settings.deviceFilter = e.target.value; this.applyFilters(); });
+                document.getElementById('statusFilter').addEventListener('change', (e)=>{ this.settings.statusFilter = e.target.value; this.applyFilters(); });
+                // Controls
+                document.getElementById('nodeSize').addEventListener('input', (e)=>{ this.settings.nodeSize = parseInt(e.target.value,10); document.getElementById('nodeSizeValue').textContent = e.target.value; this.markDirty(); });
+                document.getElementById('toggleLabels').addEventListener('click', (e)=>{ this.settings.showLabels = !this.settings.showLabels; e.target.classList.toggle('active'); this.markDirty(); });
+                document.getElementById('togglePhysics').addEventListener('click', (e)=>{ this.settings.physicsEnabled = !this.settings.physicsEnabled; e.target.classList.toggle('active'); });
+                document.getElementById('toggleConnections').addEventListener('click', (e)=>{ this.settings.showConnections = !this.settings.showConnections; e.target.classList.toggle('active'); this.markDirty(); });
+                // Buttons
+                const bind = (id, fn)=>document.getElementById(id).addEventListener('click', fn);
+                bind('btnGenerate', ()=>this.generateNetwork());
+                bind('btnClear', ()=>this.clearNetwork());
+                bind('btnReset', ()=>this.resetView());
+                bind('btnAddDevice', ()=>showAddDeviceModal());
+                bind('btnProtocols', ()=>showProtocolModal());
+                // Dashboard quick actions
+                bind('qaGenerate', ()=>{ this.generateNetwork(); this.switchView('topology'); });
+                bind('qaClear', ()=>this.clearNetwork());
+                bind('qaExport', ()=>this.exportJSON());
+                bind('qaImport', ()=>document.getElementById('fileInput').click());
+                // Ingest
+                bind('btnQuickGenerate', ()=>{ const size=document.getElementById('networkSize').value; this.generateNetwork(size); this.switchView('topology'); });
+                const dropZone = document.getElementById('dropZone');
+                dropZone.addEventListener('click', ()=>document.getElementById('fileInput').click());
+                bind('btnBrowseFiles', ()=>document.getElementById('fileInput').click());
+                ;['dragover','dragenter'].forEach(evt=>dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.style.borderColor = '#06b6d4'; }));
+                ;['dragleave','drop'].forEach(evt=>dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.style.borderColor = '#334155'; if(evt==='drop'){ handleFiles(e.dataTransfer.files); } }));
+                bind('btnProcessFiles', ()=>{ const input=document.getElementById('fileInput'); if(input.files.length) handleFiles(input.files); else toast('No files selected','warning'); });
+                document.getElementById('fileInput').addEventListener('change', (e)=>handleFiles(e.target.files));
+                bind('btnStartDiscovery', ()=>{ const source=document.getElementById('apiSource').value; const range=document.getElementById('targetRange').value||'default'; addEvent(`Discovery started: ${source} on ${range}`); toast(`Starting ${source} discovery on ${range}...`,'success'); });
+                // Analytics
+                bind('btnTopologyAnalysis', ()=>this.analyzeTopology());
+                bind('btnCriticalPaths', ()=>this.findCriticalPaths());
+                bind('btnBottlenecks', ()=>this.detectBottlenecks());
+                bind('btnMetrics', ()=>this.calculateMetrics());
+                bind('btnGenerateReport', ()=>this.generateReport());
+                bind('btnSecurityScan', ()=>{ addEvent('Security scan completed'); toast('Security scan completed!'); });
+                bind('btnVulnCheck', ()=>{ addEvent('Vulnerability check completed'); toast('Vulnerability check completed!','warning'); });
+                bind('btnComplianceAudit', ()=>{ addEvent('Compliance audit completed'); toast('Compliance audit completed!'); });
+                bind('btnThreatAnalysis', ()=>{ addEvent('Threat analysis completed'); toast('Threat analysis completed!'); });
+                bind('btnRiskAssessment', ()=>{ addEvent('Risk assessment completed'); toast('Risk assessment completed!','warning'); });
+                bind('btnLatency', ()=>{ toast('Latency analysis: Average 12ms'); });
+                bind('btnBandwidth', ()=>{ toast('Bandwidth utilization: 67%'); });
+                bind('btnCapacity', ()=>{ toast('Capacity planning report ready'); });
+                bind('btnQos', ()=>{ toast('QoS analysis completed'); });
+                // Tools
+                bind('toolPing', ()=>this.pingTest());
+                bind('toolTrace', ()=>this.traceRoute());
+                bind('toolPortScan', ()=>this.portScan());
+                bind('toolBandwidth', ()=>this.bandwidthTest());
+                bind('toolDNS', ()=>this.dnsLookup());
+                bind('toolWhois', ()=>this.whoisLookup());
+                bind('exportPNG', ()=>this.exportPNG());
+                bind('exportSVG', ()=>this.exportSVG());
+                bind('exportJSON', ()=>this.exportJSON(true));
+                bind('exportCSV', ()=>this.exportCSV());
+                bind('exportReportBtn', ()=>this.exportReport());
+                bind('exportConfigBtn', ()=>this.exportConfig());
+                bind('toolSchedule', ()=>{ addEvent('Discovery scheduled'); toast('Discovery scheduled!'); });
+                bind('toolBackup', ()=>{ addEvent('Auto backup configured'); toast('Auto backup configured!'); });
+                bind('toolHealth', ()=>{ addEvent('Health check completed'); toast('Health check completed!'); });
+                bind('toolConfigSync', ()=>{ addEvent('Config sync completed'); toast('Config sync completed!'); });
+                bind('utilSubnet', ()=>this.subnetCalculator());
+                bind('utilMAC', ()=>this.macLookup());
+                bind('utilPassword', ()=>this.passwordGenerator());
+                bind('utilLogAnalyzer', ()=>this.logAnalyzer());
+                // Monitoring
+                bind('btnStartMonitoring', ()=>this.startMonitoring());
+                bind('btnStopMonitoring', ()=>this.stopMonitoring());
+                bind('btnViewAlerts', ()=>{ toast('Viewing active alerts'); });
+                bind('btnThresholds', ()=>{ toast('Thresholds configured'); });
+                // Security
+                bind('btnVulnScan', ()=>{ this.vulnerabilityScan(); });
+                bind('btnSecurityPortScan', ()=>{ this.portScanSecurity(); });
+                bind('btnMalware', ()=>{ this.malwareScan(); });
+                bind('btnConfigAudit', ()=>{ this.configAudit(); });
+                bind('btnCIS', ()=>{ toast('CIS compliance check done'); });
+                bind('btnPCI', ()=>{ toast('PCI DSS check done'); });
+                bind('btnHIPAA', ()=>{ toast('HIPAA check done'); });
+                bind('btnSOX', ()=>{ toast('SOX 404 check done'); });
+                // Inventory
+                bind('invExportCSV', ()=>this.exportCSV());
+                bind('invExportJSON', ()=>this.exportJSON(true));
+                bind('invExportXML', ()=>this.exportXML());
+                bind('invRefresh', ()=>this.refreshInventory());
+                document.getElementById('deviceSearch').addEventListener('input', ()=>this.renderInventory());
+                // Logs
+                bind('btnClearLogs', ()=>{ logState.logs = []; updateLogsUI(); });
+                bind('btnExportLogs', ()=>exportText('logs.json', JSON.stringify(logState.logs, null, 2)));
+                document.getElementById('logLevel').addEventListener('change', (e)=>{ logState.level = e.target.value; updateLogsUI(); });
+                bind('saveLogSettings', ()=>{ toast('Log settings saved'); });
+                // Legend toggle
+                document.getElementById('legendHeader').addEventListener('click', ()=>{ const c = document.getElementById('legendContent'); c.classList.toggle('collapsed'); });
+                // Device panel
+                document.getElementById('deviceInfoClose').addEventListener('click', ()=>this.hideDeviceInfo());
+            }
+            _resize(){
+                const rect = this.canvas.getBoundingClientRect();
+                this.dpr = devicePixelRatioClamped;
+                this.canvas.width = Math.max(1, Math.floor(rect.width * this.dpr));
+                this.canvas.height = Math.max(1, Math.floor(rect.height * this.dpr));
+                this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+                this.markDirty();
+            }
+            markDirty(){ this.isDirty = true; }
+            switchView(view){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(view).classList.add('active'); document.querySelectorAll('.nav-button').forEach(b=>b.classList.remove('active')); document.querySelector(`[data-view="${view}"]`).classList.add('active'); this.markDirty(); }
+            _setLayout(layout){ this.settings.currentLayout = layout; document.getElementById('statusLayout').textContent = layout[0].toUpperCase()+layout.slice(1); this.applyLayout(layout); }
+            generateNetwork(size='medium'){
+                this.nodes.clear(); this.edges.clear(); this.selectedNodes.clear();
+                const sizeMap = { small:[10,20], medium:[25,40], large:[50,75], enterprise:[100,150] };
+                const [min,max] = sizeMap[size] || sizeMap.medium; const n = min + Math.floor(Math.random()*(max-min));
+                const types = ['router','switch','firewall','server','workstation','encryptor','satellite','mobile','printer','camera','phone'];
+                const positions = this._nonOverlappingPositions(n);
+                for(let i=0;i<n;i++){
+                    const type = types[Math.floor(Math.random()*types.length)];
+                    const node = {
+                        id: `node_${i}`,
+                        label: `${type.toUpperCase()}-${String(i).padStart(2,'0')}`,
+                        type,
+                        ip: `192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+                        mac: this._genMAC(),
+                        status: Math.random()>0.15?'online':'offline',
+                        x: positions[i].x, y: positions[i].y, vx: 0, vy: 0,
+                        color: this._deviceColor(type), connections: 0,
+                        latency: Math.floor(Math.random()*50)+1,
+                        description: this._deviceDescription(type),
+                        interfaces: this._interfaces(type),
+                        visible: true
+                    };
+                    this.nodes.set(node.id, node);
+                }
+                const list = Array.from(this.nodes.values());
+                const physCount = Math.floor(n*0.8);
+                for(let i=0;i<physCount;i++){
+                    const a=list[Math.floor(Math.random()*list.length)], b=list[Math.floor(Math.random()*list.length)];
+                    if(a.id===b.id) continue; const id=`${a.id}-${b.id}`; const rev=`${b.id}-${a.id}`; if(this.edges.has(id)||this.edges.has(rev)) continue;
+                    this._addEdge({ id, source:a.id, target:b.id, type:'physical', protocol:'config', bandwidth: 100+Math.floor(Math.random()*1000), latency: 1+Math.floor(Math.random()*50), color:'#06b6d4', visible:true });
+                }
+                const protos = ['tcp','udp','http','https','ssh','telnet','icmp','snmp','lldp','ntp'];
+                const protoCount = Math.floor(n*0.6);
+                for(let i=0;i<protoCount;i++){
+                    const a=list[Math.floor(Math.random()*list.length)], b=list[Math.floor(Math.random()*list.length)]; if(a.id===b.id) continue; const id=`${a.id}-${b.id}-protocol`; if(this.edges.has(id)) continue;
+                    const protocol = protos[Math.floor(Math.random()*protos.length)];
+                    this._addEdge({ id, source:a.id, target:b.id, type:'protocol', protocol, bandwidth: 50+Math.floor(Math.random()*500), latency: 1+Math.floor(Math.random()*30), color:this._protocolColor(protocol), visible:true });
+                }
+                this.applyLayout(this.settings.currentLayout);
+                this.applyFilters();
+                this._updateStats();
+                this.markDirty();
+                toast('Network generated successfully!');
+                addEvent('Network generated');
+            }
+            _addEdge(edge){ this.edges.set(edge.id, edge); const s=this.nodes.get(edge.source); const t=this.nodes.get(edge.target); if(s&&t){ s.connections++; t.connections++; } }
+            _nonOverlappingPositions(count){
+                const arr=[]; const minDist = this.settings.nodeSize*1.6; const maxA=80; const width=this.canvas.width/this.dpr, height=this.canvas.height/this.dpr;
+                for(let i=0;i<count;i++){
+                    let p, a=0; do { p={ x: 100+Math.random()*(width-200), y: 100+Math.random()*(height-200) }; a++; } while(a<maxA && arr.some(q=>dist(q,p)<minDist)); arr.push(p);
+                }
+                return arr;
+            }
+            applyFilters(){
+                this.nodes.forEach(n=>{ let v=true; if(this.settings.deviceFilter!=='all' && n.type!==this.settings.deviceFilter) v=false; if(this.settings.statusFilter!=='all' && n.status!==this.settings.statusFilter) v=false; n.visible=v; });
+                this.edges.forEach(e=>{ const s=this.nodes.get(e.source), t=this.nodes.get(e.target); e.visible=!!(s&&t&&s.visible&&t.visible); });
+                this._updateStats(); this.markDirty();
+            }
+            applyLayout(layout, force=false){
+                const nodes = Array.from(this.nodes.values()).filter(n=>n.visible);
+                if(!nodes.length) return; const t0=now();
+                switch(layout){
+                    case 'force': this._layoutForce(nodes, force?50:100); break;
+                    case 'circular': this._layoutCircular(nodes); break;
+                    case 'grid': this._layoutGrid(nodes); break;
+                    case 'tree': this._layoutTree(nodes); break;
+                    case 'hierarchical': this._layoutHierarchical(nodes); break;
+                    case 'radial': this._layoutRadial(nodes); break;
+                    case 'spring': this._layoutSpring(nodes); break;
+                    case 'fruchterman': this._layoutFruchterman(nodes); break;
+                    case 'kamada': this._layoutKamada(nodes); break;
+                    case 'layered': this._layoutLayered(nodes); break;
+                    case 'organic': this._layoutOrganic(nodes); break;
+                    case 'balloon': this._layoutBalloon(nodes); break;
+                }
+                this.markDirty();
+                addLog('debug', `Layout ${layout} in ${(now()-t0).toFixed(1)}ms`);
+            }
+            _layoutForce(nodes, iterations){
+                const width=this.canvas.width/this.dpr, height=this.canvas.height/this.dpr; const ideal=110;
+                for(let k=0;k<iterations;k++){
+                    for(let i=0;i<nodes.length;i++){
+                        for(let j=i+1;j<nodes.length;j++){
+                            const a=nodes[i], b=nodes[j]; const d = Math.max(1, dist(a,b)); const f = 3000/(d*d); const fx = (b.x-a.x)/d * f; const fy=(b.y-a.y)/d * f; a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy; }
+                    }
+                    this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(a&&b&&a.visible&&b.visible){ const d=Math.max(1,dist(a,b)); const f=(d-ideal)*0.02; const fx=(b.x-a.x)/d*f, fy=(b.y-a.y)/d*f; a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy; }});
+                    nodes.forEach(n=>{ n.vx*=0.85; n.vy*=0.85; n.x+=n.vx; n.y+=n.vy; n.x=clamp(n.x, 40, width-40); n.y=clamp(n.y, 40, height-40); });
+                }
+            }
+            _layoutCircular(nodes){ const cx=this.canvas.width/(2*this.dpr), cy=this.canvas.height/(2*this.dpr), r=Math.min(cx,cy)-100; nodes.forEach((n,i)=>{ const a=i*2*Math.PI/nodes.length; n.x=cx+r*Math.cos(a); n.y=cy+r*Math.sin(a); n.vx=n.vy=0; }); }
+            _layoutGrid(nodes){ const cols=Math.ceil(Math.sqrt(nodes.length)), rows=Math.ceil(nodes.length/cols); const cw=(this.canvas.width/this.dpr-80)/cols, ch=(this.canvas.height/this.dpr-80)/rows; nodes.forEach((n,i)=>{ const c=i%cols, r=Math.floor(i/cols); n.x=40+c*cw+cw/2-40; n.y=40+r*ch+ch/2-40; n.vx=n.vy=0; }); }
+            _layoutTree(nodes){ if(!nodes.length) return; const levels=new Map(); const root=nodes[0]; const q=[{n:root,l:0}], seen=new Set([root.id]); while(q.length){ const {n,l}=q.shift(); if(!levels.has(l)) levels.set(l,[]); levels.get(l).push(n); this.edges.forEach(e=>{ if(!e.visible) return; let next=null; if(e.source===n.id&&!seen.has(e.target)) next=this.nodes.get(e.target); else if(e.target===n.id&&!seen.has(e.source)) next=this.nodes.get(e.source); if(next&&next.visible){ seen.add(next.id); q.push({n:next,l:l+1}); } }); }
+                const lh=(this.canvas.height/this.dpr-80)/Math.max(1,levels.size-1); levels.forEach((arr,l)=>{ const y=40+l*lh; const sp=(this.canvas.width/this.dpr-80)/(arr.length+1); arr.forEach((n,i)=>{ n.x=40+(i+1)*sp; n.y=y; n.vx=n.vy=0; }); }); }
+            _layoutHierarchical(nodes){ const order=['firewall','router','switch','server','workstation']; const groups={}; nodes.forEach(n=>{ (groups[n.type] ||= []).push(n); }); const lh=(this.canvas.height/this.dpr-80)/order.length; order.forEach((t,idx)=>{ const arr=groups[t]||[]; const y=40+idx*lh; const sp=(this.canvas.width/this.dpr-80)/Math.max(1,arr.length+1); arr.forEach((n,i)=>{ n.x=40+(i+1)*sp; n.y=y; n.vx=n.vy=0; }); }); }
+            _layoutRadial(nodes){ if(!nodes.length) return; const cx=this.canvas.width/(2*this.dpr), cy=this.canvas.height/(2*this.dpr); const center=nodes[0]; center.x=cx; center.y=cy; const rings=Math.ceil(Math.sqrt(Math.max(1,nodes.length-1))); const per=Math.ceil((nodes.length-1)/rings); for(let i=1;i<nodes.length;i++){ const ring=Math.floor((i-1)/per), pos=(i-1)%per; const r=(ring+1)*80; const a=2*Math.PI*pos/per; nodes[i].x=cx+r*Math.cos(a); nodes[i].y=cy+r*Math.sin(a); nodes[i].vx=nodes[i].vy=0; } }
+            _layoutSpring(nodes){ // Similar to force, fewer iters, stronger springs
+                this._layoutForce(nodes, 40);
+            }
+            _layoutFruchterman(nodes){ const area=(this.canvas.width/this.dpr)*(this.canvas.height/this.dpr); const k=Math.sqrt(area/nodes.length); const tInit=10; let t=tInit; for(let iter=0;iter<50;iter++){ nodes.forEach(n=>{ n.vx=0; n.vy=0; }); for(let i=0;i<nodes.length;i++){ for(let j=i+1;j<nodes.length;j++){ const a=nodes[i], b=nodes[j]; const d=Math.max(0.01,dist(a,b)); const f=(k*k)/d; const ux=(b.x-a.x)/d, uy=(b.y-a.y)/d; a.vx-=ux*f; a.vy-=uy*f; b.vx+=ux*f; b.vy+=uy*f; } } this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!(a&&b&&a.visible&&b.visible)) return; const d=Math.max(0.01,dist(a,b)); const f=(d*d)/k; const ux=(b.x-a.x)/d, uy=(b.y-a.y)/d; a.vx+=ux*f; a.vy+=uy*f; b.vx-=ux*f; b.vy-=uy*f; }); nodes.forEach(n=>{ const dLen=Math.max(0.01,Math.hypot(n.vx,n.vy)); n.x+= (n.vx/dLen)*Math.min(dLen,t); n.y+= (n.vy/dLen)*Math.min(dLen,t); }); t=t*(0.95); }
+                nodes.forEach(n=>{ n.x=clamp(n.x, 40, this.canvas.width/this.dpr-40); n.y=clamp(n.y, 40, this.canvas.height/this.dpr-40); });
+            }
+            _layoutKamada(nodes){ // Lightweight Kamada-Kawai approximation
+                const L0=120; const K=0.02; for(let iter=0;iter<40;iter++){ this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!(a&&b&&a.visible&&b.visible)) return; const d=Math.max(1,dist(a,b)); const f = K*(d-L0); const ux=(b.x-a.x)/d, uy=(b.y-a.y)/d; a.x+=ux*f; a.y+=uy*f; b.x-=ux*f; b.y-=uy*f; }); }
+            }
+            _layoutLayered(nodes){ const layers=[[],[],[],[]]; nodes.forEach(n=>{ const idx = Math.min(3, Math.floor((n.connections||0)/3)); layers[idx].push(n); }); const h=(this.canvas.height/this.dpr-80)/layers.length; layers.forEach((arr,idx)=>{ const y=40+idx*h; const sp=(this.canvas.width/this.dpr-80)/Math.max(1,arr.length+1); arr.forEach((n,i)=>{ n.x=40+(i+1)*sp; n.y=y; }); }); }
+            _layoutOrganic(nodes){ // Jitter then relax
+                nodes.forEach(n=>{ n.x+= (Math.random()-0.5)*40; n.y+= (Math.random()-0.5)*40; }); this._layoutForce(nodes, 30);
+            }
+            _layoutBalloon(nodes){ this._layoutRadial(nodes); const cx=this.canvas.width/(2*this.dpr), cy=this.canvas.height/(2*this.dpr); nodes.forEach((n,i)=>{ const a=i*0.05; n.x += Math.cos(a)*10; n.y += Math.sin(a)*10; }); }
+            _deviceDescription(t){ const m={ router:'Core router handling routing and inter-VLAN communication', switch:'Layer-2 switch for edge connectivity', firewall:'Security appliance enforcing policies', server:'Application server hosting services', workstation:'End-user workstation' }; return m[t]||'Network device'; }
+            _interfaces(t){ const m={ router:['eth0: 192.168.1.1/24 (UP)','eth1: 10.0.0.1/8 (UP)','eth2: 172.16.0.1/16 (DOWN)'], switch:['gi0/1: VLAN 10 (UP)','gi0/2: VLAN 20 (UP)','gi0/24: Trunk (UP)'], firewall:['inside: 192.168.1.1/24 (UP)','outside: 203.0.113.1/24 (UP)','dmz: 10.0.1.1/24 (UP)'], server:['eth0: 192.168.1.100/24 (UP)','eth1: 10.0.0.100/8 (DOWN)'], workstation:['eth0: DHCP 192.168.1.50/24 (UP)'] }; return m[t]||['eth0: 192.168.1.1/24 (UP)']; }
+            _genMAC(){ return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':'); }
+            _deviceColor(t){ const c={ router:'#3b82f6', switch:'#10b981', firewall:'#f59e0b', server:'#8b5cf6', workstation:'#ef4444', encryptor:'#dc2626', satellite:'#059669', mobile:'#7c3aed', printer:'#0891b2', camera:'#ea580c', phone:'#9333ea' }; return c[t]||'#64748b'; }
+            _protocolColor(p){ const c={ tcp:'#10b981', udp:'#f59e0b', http:'#8b5cf6', https:'#8b5cf6', ssh:'#ef4444', telnet:'#ef4444', icmp:'#06b6d4', snmp:'#84cc16', lldp:'#f97316', ntp:'#a855f7', config:'#06b6d4' }; return c[p]||'#64748b'; }
+            _loop(){ const step=(ts)=>{ if(ts-this.performance.lastTime>=1000){ this.performance.fps=this.performance.frameCount; this.performance.frameCount=0; this.performance.lastTime=ts; document.getElementById('statusFPS').textContent=this.performance.fps; document.getElementById('perfFPS').textContent=this.performance.fps; }
+                    this.performance.frameCount++;
+                    if(this.settings.physicsEnabled) this._physics();
+                    if(this.isDirty) this._render();
+                    this.animationId = requestAnimationFrame(step);
+                }; this.animationId = requestAnimationFrame(step); }
+            _physics(){ const ideal=(n)=> n.type==='physical'?120:90; this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!(a&&b&&a.visible&&b.visible)) return; const d=Math.max(1,dist(a,b)); const f=(d-ideal(e))*0.004; const ux=(b.x-a.x)/d, uy=(b.y-a.y)/d; a.vx+=ux*f; a.vy+=uy*f; b.vx-=ux*f; b.vy-=uy*f; a.vx*=0.985; a.vy*=0.985; b.vx*=0.985; b.vy*=0.985; a.x+=a.vx; a.y+=a.vy; b.x+=b.vx; b.y+=b.vy; const m=this.settings.nodeSize; a.x=clamp(a.x,m,this.canvas.width/this.dpr-m); a.y=clamp(a.y,m,this.canvas.height/this.dpr-m); b.x=clamp(b.x,m,this.canvas.width/this.dpr-m); b.y=clamp(b.y,m,this.canvas.height/this.dpr-m); }); this.markDirty(); }
+            _render(){ const t0=now(); this.isDirty=false; const ctx=this.ctx; ctx.save(); ctx.clearRect(0,0,this.canvas.width/this.dpr,this.canvas.height/this.dpr); ctx.translate(this.camera.x, this.camera.y); ctx.scale(this.camera.zoom, this.camera.zoom);
+                if(this.settings.showConnections){ this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!(a&&b&&a.visible&&b.visible)) return; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle=e.color; ctx.lineWidth=2; if(e.type==='protocol'){ ctx.setLineDash([5,5]); } else { ctx.setLineDash([]); } ctx.stroke(); }); ctx.setLineDash([]); }
+                const ns=this.settings.nodeSize; this.nodes.forEach(n=>{ if(!n.visible) return; const r=ns/2; // main circle
+                    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2); ctx.fillStyle=n.color; ctx.fill(); ctx.lineWidth = this.selectedNodes.has(n.id)?3:2; ctx.strokeStyle = n.status==='online' ? '#10b981' : '#ef4444'; ctx.stroke(); if(this.selectedNodes.has(n.id)){ ctx.beginPath(); ctx.arc(n.x,n.y,r+4,0,Math.PI*2); ctx.strokeStyle='#06b6d4'; ctx.lineWidth=2; ctx.stroke(); }
+                    // icon bitmap cached
+                    const icon = this.iconFactory.get(n.type, '#fff', ns*0.9); const iw=icon.width/this.dpr, ih=icon.height/this.dpr; ctx.drawImage(icon, n.x-iw/2, n.y-ih/2, iw, ih);
+                    if(this.settings.showLabels){ ctx.fillStyle='#e2e8f0'; ctx.font='12px system-ui, Arial'; ctx.textAlign='center'; ctx.fillText(n.label, n.x, n.y+r+14); }
+                });
+                ctx.restore();
+                document.getElementById('renderTime').textContent = Math.max(1, Math.round(now()-t0))+'ms';
+            }
+            _toWorld(e){ const rect=this.canvas.getBoundingClientRect(); const x=(e.clientX-rect.left - this.camera.x)/this.camera.zoom; const y=(e.clientY-rect.top - this.camera.y)/this.camera.zoom; return {x,y}; }
+            _hit(x,y){ const r=this.settings.nodeSize/2; for(const n of this.nodes.values()){ if(!n.visible) continue; if(Math.hypot(x-n.x, y-n.y) <= r) return n; } return null; }
+            _updateStats(){ const visibleNodes=Array.from(this.nodes.values()).filter(n=>n.visible); const visibleEdges=Array.from(this.edges.values()).filter(e=>e.visible); document.getElementById('statusNodes').textContent = visibleNodes.length; document.getElementById('statusEdges').textContent = visibleEdges.length; document.getElementById('statusSelected').textContent = this.selectedNodes.size; document.getElementById('totalNodes').textContent=this.nodes.size; document.getElementById('onlineNodes').textContent=Array.from(this.nodes.values()).filter(n=>n.status==='online').length; document.getElementById('totalEdges').textContent=this.edges.size; document.getElementById('avgLatency').textContent='~'+Math.max(1, Math.round(visibleNodes.reduce((a,b)=>a+b.latency,0)/Math.max(1,visibleNodes.length)))+'ms'; this.renderInventory(); this.renderConnectionMatrix(); }
+            showDeviceInfo(n){ const p=document.getElementById('deviceInfo'); document.getElementById('deviceName').textContent=n.label; document.getElementById('deviceType').textContent=n.type[0].toUpperCase()+n.type.slice(1); document.getElementById('deviceIP').textContent=n.ip; document.getElementById('deviceMAC').textContent=n.mac; document.getElementById('deviceConnections').textContent=n.connections; document.getElementById('deviceLatency').textContent=n.latency+'ms'; document.getElementById('deviceDescription').textContent=n.description; const intEl = document.getElementById('deviceInterfaces'); intEl.innerHTML = '<div style="font-size:11px; margin-top:4px;">'+n.interfaces.map(x=>`<div>${x}</div>`).join('')+'</div>'; const sEl=document.getElementById('deviceStatus'); sEl.innerHTML = n.status==='online'?'<span class="status-indicator status-online"></span>Online':'<span class="status-indicator status-offline"></span>Offline'; p.classList.add('show'); }
+            hideDeviceInfo(){ document.getElementById('deviceInfo').classList.remove('show'); }
+            clearNetwork(){ this.nodes.clear(); this.edges.clear(); this.selectedNodes.clear(); this.hideDeviceInfo(); this._updateStats(); this.markDirty(); toast('Network cleared'); addEvent('Network cleared'); }
+            resetView(){ this.camera={x:0,y:0,zoom:1}; document.getElementById('statusZoom').textContent='100%'; this.markDirty(); toast('View reset'); }
+
+            // Analytics
+            analyzeTopology(){ const comps = this._connectedComponents(); addEvent(`Topology analysis: ${comps.length} components`); toast('Topology analysis complete'); }
+            findCriticalPaths(){ const paths=this._approxCriticalPaths(); addEvent(`Critical paths: ${paths.length}`); toast('Critical paths identified'); }
+            detectBottlenecks(){ const b=this._betweennessCentrality(); const top=Object.entries(b).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id])=>this.nodes.get(id)?.label).filter(Boolean); addEvent(`Potential bottlenecks: ${top.join(', ')||'none'}`); toast('Bottlenecks detected','warning'); }
+            calculateMetrics(){ const degAvg = this._averageDegree(); const density=this._density(); addEvent(`Metrics: avg degree ${degAvg.toFixed(2)}, density ${density.toFixed(3)}`); toast('Network metrics calculated'); }
+            generateReport(){ const report={ ts:new Date().toISOString(), nodes:this.nodes.size, edges:this.edges.size, components:this._connectedComponents().length, metrics:{ degreeAvg:this._averageDegree(), density:this._density() } }; exportText('report.json', JSON.stringify(report,null,2)); toast('Report generated'); }
+
+            // Tools (simulated)
+            pingTest(){ const n=this._anyNode(); if(!n) return toast('No nodes'); const r=5+Math.floor(Math.random()*30); addEvent(`Ping ${n.ip}: avg ${r}ms`); toast(`Ping ${n.ip}: ${r}ms`); }
+            traceRoute(){ const n=this._anyNode(); if(!n) return toast('No nodes'); const hops=3+Math.floor(Math.random()*8); addEvent(`Traceroute to ${n.ip}: ${hops} hops`); toast(`Trace route: ${hops} hops`); }
+            portScan(){ const n=this._anyNode(); if(!n) return toast('No nodes'); const open=5+Math.floor(Math.random()*25); addEvent(`Port scan ${n.ip}: ${open} open ports`); toast(`Port scan: ${open} open`); }
+            bandwidthTest(){ const mbps=50+Math.floor(Math.random()*300); addEvent(`Bandwidth test: ${mbps} Mbps`); toast(`Bandwidth: ${mbps} Mbps`); }
+            dnsLookup(){ addEvent('DNS lookup completed'); toast('DNS lookup done'); }
+            whoisLookup(){ addEvent('WHOIS lookup completed'); toast('WHOIS lookup done'); }
+            vulnerabilityScan(){ const count=1+Math.floor(Math.random()*6); document.getElementById('vulnCount').textContent = count; addEvent(`${count} vulnerabilities discovered`); toast('Vulnerability scan completed','warning'); }
+            portScanSecurity(){ this.portScan(); }
+            malwareScan(){ addEvent('Malware scan completed'); toast('Malware scan completed'); }
+            configAudit(){ addEvent('Configuration audit completed'); toast('Configuration audit completed'); }
+
+            // Monitoring
+            startMonitoring(){ if(this.monitorTimer) return toast('Monitoring already running','warning'); this.monitorTimer = setInterval(()=>{ this._jitterMetrics(); this._maybeFlipStatus(); this._updateStats(); this.markDirty(); }, 2000); toast('Monitoring started'); addEvent('Monitoring started'); }
+            stopMonitoring(){ if(this.monitorTimer){ clearInterval(this.monitorTimer); this.monitorTimer=null; toast('Monitoring stopped'); addEvent('Monitoring stopped'); } }
+            _jitterMetrics(){ document.getElementById('metricUptime').textContent = (97+Math.random()*3).toFixed(2)+'%'; document.getElementById('metricBandwidth').textContent = (120+Math.random()*80|0); document.getElementById('metricLatency').textContent = (8+Math.random()*15|0)+'ms'; document.getElementById('metricLoss').textContent = (Math.random()*0.1).toFixed(2)+'%'; }
+            _maybeFlipStatus(){ const arr=Array.from(this.nodes.values()); if(!arr.length) return; const idx=Math.floor(Math.random()*arr.length); const n=arr[idx]; n.status = n.status==='online'?'offline':'online'; addEvent(`${n.label} is now ${n.status}`); }
+
+            // Inventory
+            renderInventory(){ const q=document.getElementById('deviceSearch').value?.toLowerCase()||''; const list=document.getElementById('deviceInventoryList'); const items=Array.from(this.nodes.values()).filter(n=>n.label.toLowerCase().includes(q)); list.innerHTML = items.map(n=>`<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;gap:10px"><span>${n.label} (${n.ip})</span><span style="color:${n.status==='online'?'#10b981':'#ef4444'}">${n.status}</span></div>`).join(''); document.getElementById('inventoryDevices').textContent=this.nodes.size; document.getElementById('inventoryConnections').textContent=this.edges.size; document.getElementById('inventoryProtocols').textContent=new Set(Array.from(this.edges.values()).filter(e=>e.type==='protocol').map(e=>e.protocol)).size; document.getElementById('inventorySubnets').textContent=new Set(Array.from(this.nodes.values()).map(n=>n.ip.split('.').slice(0,3).join('.'))).size; }
+            renderConnectionMatrix(){ const ids=Array.from(this.nodes.keys()); const has=(a,b)=>{ return Array.from(this.edges.values()).some(e=> (e.source===a && e.target===b) || (e.source===b && e.target===a)); }; const rows=ids.slice(0,Math.min(ids.length,25)); let html='<table style="border-collapse:collapse;width:100%">'; html+='<tr><th></th>'+rows.map(id=>`<th style="border:1px solid #334155;padding:4px;font-size:10px">${this.nodes.get(id).label}</th>`).join('')+'</tr>'; rows.forEach(a=>{ html+=`<tr><th style="border:1px solid #334155;padding:4px;font-size:10px;text-align:left">${this.nodes.get(a).label}</th>`; rows.forEach(b=>{ const yes= a===b?'-':(has(a,b)?'●':''); html+=`<td style="border:1px solid #334155;padding:2px;text-align:center;color:#06b6d4">${yes}</td>`; }); html+='</tr>'; }); html+='</table>'; document.getElementById('connectionMatrix').innerHTML=html; }
+
+            // Exports / Imports
+            exportPNG(){ const link=document.createElement('a'); link.download='topology.png'; link.href=this.canvas.toDataURL('image/png'); link.click(); toast('PNG export completed'); }
+            exportSVG(){ const svg=this._toSVG(); const blob=new Blob([svg],{type:'image/svg+xml'}); exportBlob('topology.svg', blob); toast('SVG export completed'); }
+            exportJSON(download=false){ const data={ nodes:Array.from(this.nodes.values()), edges:Array.from(this.edges.values()) }; if(download){ exportText('topology.json', JSON.stringify(data,null,2)); toast('JSON export completed'); } return data; }
+            exportCSV(){ const rows=['id,label,type,ip,mac,status']; this.nodes.forEach(n=>rows.push([n.id,n.label,n.type,n.ip,n.mac,n.status].join(','))); exportText('nodes.csv', rows.join('\n')); toast('CSV export completed'); }
+            exportXML(){ const json=this.exportJSON(); const xmlNodes=json.nodes.map(n=>`<node id="${n.id}" label="${n.label}" type="${n.type}" ip="${n.ip}" mac="${n.mac}" status="${n.status}" />`).join(''); const xmlEdges=json.edges.map(e=>`<edge id="${e.id}" source="${e.source}" target="${e.target}" type="${e.type}" protocol="${e.protocol}" />`).join(''); const xml=`<?xml version="1.0"?><topology>${xmlNodes}${xmlEdges}</topology>`; exportText('topology.xml', xml); toast('XML export completed'); }
+            exportReport(){ this.generateReport(); }
+            exportConfig(){ this.exportJSON(true); }
+
+            refreshInventory(){ this.renderInventory(); this.renderConnectionMatrix(); toast('Inventory refreshed'); }
+
+            // Utilities
+            subnetCalculator(){ toast('Subnet calculator coming soon'); }
+            macLookup(){ const n=this._anyNode(); if(!n) return toast('No nodes'); toast(`Vendor: ACME Corp for ${n.mac}`); }
+            passwordGenerator(){ const p=Math.random().toString(36).slice(2,8)+'-'+Math.random().toString(36).slice(2,8); exportText('password.txt', p); toast('Password generated'); }
+            logAnalyzer(){ const errors=logState.logs.filter(l=>l.level==='error').length; toast(`Logs analyzed: ${errors} errors`); }
+
+            // Helpers
+            _anyNode(){ const arr=Array.from(this.nodes.values()); return arr[ Math.floor(Math.random()*arr.length) ]; }
+            _connectedComponents(){ const ids=new Set(this.nodes.keys()); const adj={}; this.edges.forEach(e=>{ (adj[e.source] ||= new Set()).add(e.target); (adj[e.target] ||= new Set()).add(e.source); }); const comps=[]; const seen=new Set(); ids.forEach(id=>{ if(seen.has(id)) return; const q=[id], c=[]; seen.add(id); while(q.length){ const v=q.shift(); c.push(v); (adj[v]||[]).forEach(n=>{ if(!seen.has(n)){ seen.add(n); q.push(n); } }); } comps.push(c); }); return comps; }
+            _betweennessCentrality(){ const nodes=Array.from(this.nodes.keys()); const adj={}; this.edges.forEach(e=>{ (adj[e.source] ||= []).push(e.target); (adj[e.target] ||= []).push(e.source); }); const C={}; nodes.forEach(v=>C[v]=0); for(const s of nodes){ const S=[]; const P={}; nodes.forEach(v=>P[v]=[]); const sigma={}; nodes.forEach(v=>sigma[v]=0); sigma[s]=1; const d={}; nodes.forEach(v=>d[v]=-1); d[s]=0; const Q=[s]; while(Q.length){ const v=Q.shift(); S.push(v); (adj[v]||[]).forEach(w=>{ if(d[w]<0){ Q.push(w); d[w]=d[v]+1; } if(d[w]===d[v]+1){ sigma[w]+=sigma[v]; P[w].push(v); } }); }
+                const delta={}; nodes.forEach(v=>delta[v]=0); while(S.length){ const w=S.pop(); P[w].forEach(v=>{ delta[v] += (sigma[v]/sigma[w])*(1+delta[w]); }); if(w!==s) C[w]+=delta[w]; }
+            }
+                return C; }
+            _approxCriticalPaths(){ const comps=this._connectedComponents(); const paths=[]; comps.forEach(c=>{ if(c.length<2) return; const start=c[0]; const distMap={}; const prev={}; const q=[start]; distMap[start]=0; const adj={}; this.edges.forEach(e=>{ (adj[e.source] ||= new Set()).add(e.target); (adj[e.target] ||= new Set()).add(e.source); }); while(q.length){ const v=q.shift(); (adj[v]||[]).forEach(w=>{ if(!(w in distMap)){ distMap[w]=distMap[v]+1; prev[w]=v; q.push(w); } }); } const end=Object.keys(distMap).sort((a,b)=>distMap[b]-distMap[a])[0]; if(end){ const path=[end]; let cur=end; while(prev[cur]){ cur=prev[cur]; path.push(cur); } paths.push(path.reverse()); } }); return paths; }
+            _averageDegree(){ const n=this.nodes.size; if(!n) return 0; const m=this.edges.size; return (2*m)/n; }
+            _density(){ const n=this.nodes.size; const m=this.edges.size; if(n<2) return 0; return (2*m)/(n*(n-1)); }
+
+            _toSVG(){ const w=this.canvas.width/this.dpr, h=this.canvas.height/this.dpr; const ns = this.settings.nodeSize; const esc=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="background:#0f172a">`; svg+=`<g transform="translate(${this.camera.x},${this.camera.y}) scale(${this.camera.zoom})">`;
+                if(this.settings.showConnections){ this.edges.forEach(e=>{ if(!e.visible) return; const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!(a&&b&&a.visible&&b.visible)) return; const dash = e.type==='protocol' ? 'stroke-dasharray="6,6"' : ''; svg+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${e.color}" stroke-width="2" ${dash}/>`; }); }
+                this.nodes.forEach(n=>{ if(!n.visible) return; svg+=`<circle cx="${n.x}" cy="${n.y}" r="${ns/2}" fill="${n.color}" stroke="${n.status==='online'?'#10b981':'#ef4444'}" stroke-width="2" />`; if(this.settings.showLabels){ svg+=`<text x="${n.x}" y="${n.y+ns/2+14}" fill="#e2e8f0" font-size="12" text-anchor="middle">${esc(n.label)}</text>`; } });
+                svg+='</g></svg>'; return svg; }
+        }
+
+        // Utilities
+        function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+        function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+        function exportText(filename, text){ const blob=new Blob([text],{type:'text/plain'}); exportBlob(filename, blob); }
+        function exportBlob(filename, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
+
+        // File import (JSON or CSV)
+        async function handleFiles(fileList){ const files=[...fileList]; for(const f of files){ const text = await f.text(); if(f.name.endsWith('.json')){ try{ const data=JSON.parse(text); if(data.nodes && data.edges){ engine.nodes = new Map(data.nodes.map(n=>[n.id,n])); engine.edges = new Map(data.edges.map(e=>[e.id,e])); engine.applyLayout(engine.settings.currentLayout); engine.applyFilters(); engine._updateStats(); engine.markDirty(); addEvent(`Imported ${f.name}`); toast(`Imported ${f.name}`); } }catch(err){ addLog('error', `Failed to import ${f.name}: ${err.message}`); toast('Import failed','error'); }
+                } else if(f.name.endsWith('.csv')) { const rows=text.trim().split(/\r?\n/).slice(1).map(l=>l.split(',')); rows.forEach((cols,i)=>{ const [id,label,type,ip,mac,status]=cols; engine.nodes.set(id||`csv_${i}`, { id:id||`csv_${i}`, label:label||`CSV-${i}`, type:type||'workstation', ip:ip||`192.168.0.${i+2}`, mac:mac||engine._genMAC(), status:status||'online', x:100+Math.random()*400, y:100+Math.random()*300, vx:0, vy:0, color:engine._deviceColor(type||'workstation'), connections:0, latency:10+Math.floor(Math.random()*30), description:'Imported device', interfaces:['eth0: DHCP (UP)'], visible:true }); }); engine.applyLayout(engine.settings.currentLayout); engine.applyFilters(); engine._updateStats(); engine.markDirty(); addEvent(`Imported ${f.name}`); toast(`Imported ${f.name}`); }
+        } }
+
+        // Modals
+        function showAddDeviceModal(){ document.getElementById('addDeviceModal').style.display='flex'; }
+        function hideAddDeviceModal(){ document.getElementById('addDeviceModal').style.display='none'; }
+        document.getElementById('addDeviceClose').addEventListener('click', hideAddDeviceModal);
+        document.getElementById('addDeviceCancel').addEventListener('click', hideAddDeviceModal);
+        document.getElementById('addDeviceForm').addEventListener('submit', (e)=>{ e.preventDefault(); const name=fDeviceName.value.trim(); const type=fDeviceType.value; const ip=fDeviceIP.value.trim(); const mac=fDeviceMAC.value.trim()||engine._genMAC(); const desc=fDeviceDescription.value.trim(); const status=fDeviceStatus.value; const loc=fDeviceLocation.value.trim(); if(!name||!type||!ip) return toast('Missing required fields','error'); const id = name.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_'+Math.floor(Math.random()*10000); const node={ id, label:name, type, ip, mac, status, x: 120+Math.random()*300, y: 120+Math.random()*300, vx:0, vy:0, color:engine._deviceColor(type), connections:0, latency:10+Math.floor(Math.random()*40), description: desc || `${type} at ${loc||'N/A'}`, interfaces: engine._interfaces(type), visible:true }; engine.nodes.set(id,node); engine.applyLayout(engine.settings.currentLayout,true); engine._updateStats(); engine.markDirty(); addEvent(`Device added: ${name}`); toast('Device added'); hideAddDeviceModal(); });
+
+        function showProtocolModal(){ document.getElementById('protocolModal').style.display='flex'; }
+        function hideProtocolModal(){ document.getElementById('protocolModal').style.display='none'; }
+        document.getElementById('protocolClose').addEventListener('click', hideProtocolModal);
+        document.getElementById('btnAddProtocol').addEventListener('click', ()=>{ const name=protocolName.value.trim(); const port=parseInt(protocolPort.value||'0',10); const type=protocolType.value; const color=protocolColor.value||'#06b6d4'; if(!name) return toast('Protocol name required','warning'); const proto={ name, port, type, color }; engine.customProtocols.push(proto); const list=document.getElementById('customProtocolList'); const item=document.createElement('div'); item.className='protocol-item'; item.style.display='flex'; item.style.justifyContent='space-between'; item.style.alignItems='center'; item.style.padding='6px'; item.style.marginBottom='6px'; item.style.borderRadius='6px'; item.style.background='rgba(255,255,255,.05)'; item.innerHTML = `<span>${name} (${type.toUpperCase()}${port?':'+port:''})</span><button class="btn" style="padding:2px 6px;background:${color};border-color:${color}">Remove</button>`; const btn=item.querySelector('button'); btn.addEventListener('click', ()=>{ const i=engine.customProtocols.indexOf(proto); if(i>=0) engine.customProtocols.splice(i,1); item.remove(); }); list.appendChild(item); toast('Protocol added'); });
+
+        // Logs UI
+        function updateLogsUI(){ const level=document.getElementById('logLevel').value; const container=document.getElementById('logContainer'); const filtered = logState.logs.filter(l=> level==='all' || l.level===level ); container.innerHTML = filtered.map(l=>`<div style="padding:4px;border-bottom:1px dashed rgba(255,255,255,.08)">[${l.ts}] <b style="color:${levelColor(l.level)}">${l.level.toUpperCase()}</b> ${l.message}</div>`).join(''); document.getElementById('logCount').textContent = logState.logs.length; document.getElementById('errorCount').textContent = logState.logs.filter(l=>l.level==='error').length; document.getElementById('warningCount').textContent = logState.logs.filter(l=>l.level==='warning').length; document.getElementById('eventCount').textContent = logState.events.length; }
+        function updateEventsUI(){ const container=document.getElementById('networkEvents'); container.innerHTML = logState.events.map(e=>`<div style="padding:6px;border-left:3px solid #06b6d4;background:rgba(6,182,212,.06);border-radius:4px;margin-bottom:6px"><div style="color:#93a3b8;font-size:11px">${e.ts}</div><div>${e.message}</div></div>`).join(''); }
+        function levelColor(level){ return level==='error'?'#ef4444': level==='warning'?'#f59e0b': level==='debug'?'#a3e635':'#10b981'; }
+
+        // Instantiate engine and bootstrap
+        const engine = new NetworkEngine();
+        window.engine = engine;
+        addLog('info','UI bootstrapped');
+        setTimeout(()=>engine.generateNetwork(), 600);
+
+    })();
+    </script>
+</body>
+</html>
+
