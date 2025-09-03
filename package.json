@@ -1,0 +1,25 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "- Original file: https://mega.nz/#!zEAU1AQL!oWJ63n-D6lCuCQ4AY0Cv_405hX8kn7MEsa1iLH5UjKU - Passphrase: `CrDj\"(;Va.*NdlnzB9M?@K2)#>deB7mN` (as disclosed by the ShadowBrokers, [source](https://medium.com/@shadowbrokerss/dont-forget-your-base-867d304a94b1)) - This summary is provided by the community: complaints/credits to `jvoisin` @ `dustri.org` and [@x0rz](https://www.twitter.com/x0rz)",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karterkr/EQGRP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/karterkr/EQGRP/issues"
+  },
+  "homepage": "https://github.com/karterkr/EQGRP#readme",
+  "dependencies": {
+    "jsdom": "^22.1.0",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5"
+  }
+}
