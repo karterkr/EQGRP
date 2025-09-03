@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StarWeb ✨ – Network Inventory</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">⭐️ StarWeb</div>
+      <ul class="nav-links">
+        <li><a href="#hero">Home</a></li>
+        <li><a href="#inventory">Inventory</a></li>
+        <li><a href="#ingest">Ingest</a></li>
+        <li><a href="#viz">Visualize</a></li>
+        <li><a href="#export">Export</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <section id="hero" class="hero">
+    <div class="hero-content">
+      <h1>Welcome to StarWeb</h1>
+      <p>Shining bright in the web development galaxy.</p>
+      <button data-scroll-target="inventory">Open Inventory</button>
+    </div>
+  </section>
+
+  <main class="container">
+    <section id="inventory" class="section">
+      <h2>Device Inventory</h2>
+      <div class="toolbar">
+        <button id="addDeviceBtn">Add Device</button>
+        <button id="genFakeBtn">Generate Fake Data</button>
+        <button id="clearAllBtn" class="danger">Clear All</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="deviceTable">
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>Hostname</th>
+              <th>Type</th>
+              <th>OS Version</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="ingest" class="section">
+      <h2>Ingest Network Data</h2>
+      <div class="ingest-grid">
+        <div class="card">
+          <h3>Upload Spreadsheet (CSV/XLSX)</h3>
+          <p>Expected columns (CSV header or mapped):</p>
+          <code>from_ip, from_port, from_mac, to_ip, to_port, to_mac, protocol, hostname?</code>
+          <input id="fileInput" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+          <div id="mapping" class="mapping"></div>
+        </div>
+        <div class="card">
+          <h3>Paste Config / Source Lines</h3>
+          <textarea id="configInput" placeholder="Paste device configs or log lines here..."></textarea>
+          <div class="toolbar">
+            <button id="parseConfigBtn">Parse & Add Devices</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="viz" class="section">
+      <h2>Network Visualization</h2>
+      <div class="toolbar">
+        <label>
+          Layout
+          <select id="layoutSelect">
+            <option value="force">Force</option>
+            <option value="grid">Grid</option>
+            <option value="circular">Circular</option>
+            <option value="hierarchical">Hierarchical</option>
+          </select>
+        </label>
+        <label>
+          Icon Theme
+          <select id="iconThemeSelect">
+            <option value="flat">Flat</option>
+            <option value="glyph">Glyph</option>
+            <option value="emoji">Emoji</option>
+          </select>
+        </label>
+      </div>
+      <div id="vizCanvas" class="viz-canvas"></div>
+    </section>
+
+    <section id="export" class="section">
+      <h2>Export</h2>
+      <div class="toolbar">
+        <button id="exportJsonBtn">Export Inventory (JSON)</button>
+        <button id="exportCsvBtn">Export Inventory (CSV)</button>
+        <button id="exportConfigsBtn">Export Config / Source</button>
+      </div>
+      <pre id="exportPreview" class="export-preview"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 StarWeb. All rights reserved.</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+

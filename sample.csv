@@ -1,0 +1,4 @@
+from_ip,from_port,form_mac,to_ip,to_port,to_mac,protocol,hostname
+10.0.0.1,Gi0/0,aa:aa:aa:aa:aa:01,10.0.0.2,Gi0/1,bb:bb:bb:bb:bb:02,ethernet,core-r1
+10.0.0.2,Gi0/1,bb:bb:bb:bb:bb:02,10.0.0.3,Gi0/2,cc:cc:cc:cc:cc:03,ethernet,edge-sw1
+10.0.0.3,Gi0/2,cc:cc:cc:cc:cc:03,10.0.0.4,Gi0/3,dd:dd:dd:dd:dd:04,ethernet,server01

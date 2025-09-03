@@ -1,0 +1,75 @@
+:root {
+  --bg: #0b0f17;
+  --panel: #121826;
+  --muted: #99a3b3;
+  --text: #e6ebf2;
+  --primary: #6ee7ff;
+  --primary-700: #22d3ee;
+  --danger: #ff6b6b;
+  --success: #10b981;
+  --card: #141b2d;
+  --border: #23314d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: radial-gradient(1200px 800px at 10% 10%, #17223a 0%, var(--bg) 60%);
+  min-height: 100vh;
+}
+
+header { position: sticky; top: 0; z-index: 50; background: rgba(11,15,23,0.7); backdrop-filter: blur(8px); }
+.navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+}
+.logo { font-weight: 700; letter-spacing: 0.3px; }
+.nav-links { list-style: none; display: flex; gap: 16px; margin: 0; padding: 0; }
+.nav-links a { color: var(--text); text-decoration: none; opacity: 0.9; }
+.nav-links a:hover { color: var(--primary); }
+
+.hero { display: grid; place-items: center; min-height: 42vh; text-align: center; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0) 40%); }
+.hero .hero-content h1 { margin: 8px 0 6px; font-size: 40px; }
+.hero button { background: var(--primary); border: 0; padding: 10px 16px; border-radius: 10px; color: #062128; font-weight: 600; cursor: pointer; }
+.hero button:hover { background: var(--primary-700); }
+
+.container { width: min(1200px, 92vw); margin: 0 auto; padding: 16px 0 40px; }
+.section { margin: 24px 0; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+.section h2 { margin: 0 0 12px; }
+
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar button, .toolbar select, .toolbar label { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 10px; }
+.toolbar button { cursor: pointer; }
+.toolbar button:hover { border-color: var(--primary); }
+.toolbar .danger { background: rgba(255,107,107,0.12); border-color: #e06666; color: #ffdcdc; }
+
+.table-wrapper { overflow: auto; border-radius: 10px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #0f1530; }
+th, td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+.ingest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 12px; }
+.card textarea { width: 100%; min-height: 160px; resize: vertical; background: #0a1124; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+.mapping { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.mapping select, .mapping input { background: #0a1124; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+
+.viz-canvas { height: 420px; background: radial-gradient(600px 300px at 20% 0%, #162446 0%, #0b132a 40%, #0b0f17 100%); border: 1px solid var(--border); border-radius: 12px; position: relative; overflow: hidden; }
+.node { position: absolute; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 12px; color: #021321; font-weight: 700; }
+.node.flat { background: #a0e9ff; }
+.node.glyph { background: #ffd166; }
+.node.emoji { background: #caffbf; }
+.node-label { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; color: var(--muted); }
+.edge { position: absolute; background: var(--primary-700); height: 2px; transform-origin: 0 0; opacity: 0.6; }
+
+.export-preview { background: #091125; border: 1px solid var(--border); border-radius: 12px; padding: 12px; max-height: 260px; overflow: auto; }
+
+footer { text-align: center; color: var(--muted); padding: 24px 0; }
+
+@media (max-width: 900px) {
+  .ingest-grid { grid-template-columns: 1fr; }
+}
+
