@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Ninja Pro v39 — Minimal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: linear-gradient(135deg, #0f172a, #1e293b 60%, #111827); color: #e5e7eb; height: 100vh; overflow: hidden; }
+        .app { display: flex; height: 100vh; }
+        .sidebar { width: 64px; background: linear-gradient(180deg, #0b1220, #0b1220 40%, #0a0f1a); border-right: 1px solid #1f2a3a; display: flex; flex-direction: column; align-items: center; padding: 12px 8px; gap: 8px; }
+        .logo { width: 40px; height: 40px; border-radius: 10px; background: radial-gradient(circle at 30% 30%, #06b6d4, #0ea5b7 60%, #0b8aa2); display: grid; place-items: center; font-size: 18px; }
+        .nav { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; width: 100%; }
+        .btn-tab { width: 100%; height: 44px; background: transparent; color: #8aa3b8; border: none; border-radius: 10px; display: grid; place-items: center; font-size: 18px; cursor: pointer; position: relative; transition: .2s ease; }
+        .btn-tab:hover { color: #06b6d4; background: rgba(6, 182, 212, 0.08); }
+        .btn-tab.active { color: #111827; background: #06b6d4; box-shadow: 0 6px 18px rgba(6,182,212,.3); }
+        .tooltip { position: absolute; left: 72px; top: 50%; transform: translateY(-50%); background: #0b1220; border: 1px solid #1f2a3a; color: #c7d2fe; padding: 6px 10px; border-radius: 8px; font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+        .btn-tab:hover .tooltip { opacity: 1; }
+        .main { flex: 1; position: relative; overflow: hidden; }
+        .view { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+        .view.active { opacity: 1; pointer-events: auto; }
+
+        /* Viz */
+        #canvas { width: 100%; height: 100%; cursor: grab; background:
+            radial-gradient(1200px 800px at 20% 10%, rgba(6,182,212,.06), transparent 60%),
+            radial-gradient(800px 800px at 80% 80%, rgba(99,102,241,.05), transparent 60%);
+        }
+        #canvas:active { cursor: grabbing; }
+        .controls { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; flex-wrap: wrap; background: rgba(11,18,32,.92); border: 1px solid #1f2a3a; padding: 12px; border-radius: 12px; backdrop-filter: blur(12px); }
+        .control { display: flex; align-items: center; gap: 6px; }
+        .btn { background: rgba(255,255,255,.04); color: #e5e7eb; border: 1px solid #1f2a3a; padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .2s; }
+        .btn:hover { background: rgba(6,182,212,.12); border-color: #06b6d4; color: #06b6d4; }
+        .select, .input { background: rgba(255,255,255,.04); color: #e5e7eb; border: 1px solid #1f2a3a; padding: 6px 8px; border-radius: 8px; font-size: 12px; }
+        .range { accent-color: #06b6d4; }
+
+        /* Inventory */
+        .panel { padding: 20px; height: 100%; overflow: auto; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .card { background: rgba(11,18,32,.85); border: 1px solid #1f2a3a; border-radius: 12px; padding: 16px; }
+        .card-title { color: #06b6d4; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .table th, .table td { border-bottom: 1px solid rgba(255,255,255,.06); padding: 10px 8px; text-align: left; }
+        .table th { color: #93c5fd; font-weight: 600; position: sticky; top: 0; background: rgba(11,18,32,.98); }
+        .actions { display: flex; gap: 6px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid; }
+        .badge.online { color: #10b981; border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.08); }
+        .badge.offline { color: #ef4444; border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.08); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; right: 20px; background: rgba(11,18,32,.95); border: 1px solid #1f2a3a; color: #e5e7eb; padding: 12px 14px; border-radius: 10px; opacity: 0; transform: translateY(10px); transition: .25s; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo">🥷</div>
+            <nav class="nav">
+                <button class="btn-tab active" data-view="dashboard">📊<span class="tooltip">Dashboard</span></button>
+                <button class="btn-tab" data-view="viz">🌐<span class="tooltip">Visualization</span></button>
+                <button class="btn-tab" data-view="inventory">📋<span class="tooltip">Inventory</span></button>
+                <button class="btn-tab" data-view="ingest">📥<span class="tooltip">Data Ingest</span></button>
+            </nav>
+        </aside>
+        <main class="main">
+            <section id="dashboard" class="view active">
+                <div class="panel">
+                    <div class="grid">
+                        <div class="card">
+                            <div class="card-title">Network Overview</div>
+                            <div style="display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;">
+                                <div class="card"><div>Total Nodes</div><div id="m_totalNodes" style="color:#06b6d4;font-weight:700;font-size:22px;">0</div></div>
+                                <div class="card"><div>Online</div><div id="m_online" style="color:#10b981;font-weight:700;font-size:22px;">0</div></div>
+                                <div class="card"><div>Edges</div><div id="m_edges" style="color:#93c5fd;font-weight:700;font-size:22px;">0</div></div>
+                                <div class="card"><div>FPS</div><div id="m_fps" style="color:#fbbf24;font-weight:700;font-size:22px;">0</div></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Quick Actions</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <button class="btn" id="btnGen">Generate</button>
+                                <button class="btn" id="btnClear">Clear</button>
+                                <button class="btn" id="btnReset">Reset View</button>
+                                <button class="btn" id="btnExportPNG">Export PNG</button>
+                                <button class="btn" id="btnExportJSON">Export JSON</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="viz" class="view">
+                <canvas id="canvas"></canvas>
+                <div class="controls">
+                    <div class="control"><span style="font-size:12px;color:#93c5fd">Node Size</span><input id="nodeSize" class="range" type="range" min="16" max="64" value="32"></div>
+                    <div class="control"><button class="btn" id="toggleLabels">Labels</button></div>
+                    <div class="control"><select id="layout" class="select">
+                        <option value="force">Force</option>
+                        <option value="circular">Circular</option>
+                        <option value="grid">Grid</option>
+                        <option value="radial">Radial</option>
+                        <option value="tree">Tree</option>
+                    </select></div>
+                    <div class="control"><select id="filterType" class="select">
+                        <option value="all">All Types</option>
+                        <option value="router">Routers</option>
+                        <option value="switch">Switches</option>
+                        <option value="firewall">Firewalls</option>
+                        <option value="server">Servers</option>
+                        <option value="workstation">Workstations</option>
+                        <option value="mobile">Mobile</option>
+                        <option value="encryptor">Encryptors</option>
+                    </select></div>
+                </div>
+            </section>
+
+            <section id="inventory" class="view">
+                <div class="panel">
+                    <div class="card">
+                        <div class="card-title">Device Inventory</div>
+                        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                            <input id="search" class="input" placeholder="Search name/IP/type..." style="min-width:240px;">
+                            <button class="btn" id="addRow">Add Device</button>
+                            <button class="btn" id="exportCSV">Export CSV</button>
+                        </div>
+                        <div style="overflow:auto; max-height: 60vh;">
+                            <table class="table" id="invTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>IP</th>
+                                        <th>MAC</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="ingest" class="view">
+                <div class="panel">
+                    <div class="grid">
+                        <div class="card">
+                            <div class="card-title">Quick Generation</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <select id="genSize" class="select">
+                                    <option value="small">Small (10–20)</option>
+                                    <option value="medium" selected>Medium (25–40)</option>
+                                    <option value="large">Large (60–90)</option>
+                                </select>
+                                <button class="btn" id="genNow">Generate</button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Import/Export</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <input type="file" id="fileInput" class="input">
+                                <button class="btn" id="importJSON">Import JSON</button>
+                                <button class="btn" id="exportJSON2">Export JSON</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+    // Minimal engine with always-on physics and dark IT icons
+    class Engine {
+        constructor() {
+            this.canvas = document.getElementById('canvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.nodes = new Map();
+            this.edges = new Map();
+            this.labels = true;
+            this.camera = { x: 0, y: 0, z: 1 };
+            this.drag = { panning: false, node: null, lastX: 0, lastY: 0 };
+            this.settings = { nodeSize: 32, layout: 'force', typeFilter: 'all' };
+            this.fps = { last: 0, frames: 0 };
+            this._init();
+        }
+        _init() {
+            const resize = () => { this.canvas.width = this.canvas.offsetWidth; this.canvas.height = this.canvas.offsetHeight; };
+            resize();
+            addEventListener('resize', resize);
+            this._bindUI();
+            this._bindCanvas();
+            this._loop(performance.now());
+        }
+        _bindUI() {
+            document.querySelectorAll('.btn-tab').forEach(b=>b.addEventListener('click',e=>{document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.btn-tab').forEach(x=>x.classList.remove('active'));const v=e.currentTarget.dataset.view;document.getElementById(v).classList.add('active');e.currentTarget.classList.add('active');}));
+            document.getElementById('nodeSize').addEventListener('input',e=>{this.settings.nodeSize=parseInt(e.target.value,10);});
+            document.getElementById('layout').addEventListener('change',e=>{this.settings.layout=e.target.value; this.applyLayout();});
+            document.getElementById('filterType').addEventListener('change',e=>{this.settings.typeFilter=e.target.value; this.applyFilter();});
+            document.getElementById('toggleLabels').addEventListener('click',()=>{this.labels=!this.labels;});
+            document.getElementById('btnGen').addEventListener('click',()=>this.generate());
+            document.getElementById('btnClear').addEventListener('click',()=>this.clear());
+            document.getElementById('btnReset').addEventListener('click',()=>{this.camera={x:0,y:0,z:1};});
+            document.getElementById('btnExportPNG').addEventListener('click',()=>this.exportPNG());
+            document.getElementById('btnExportJSON').addEventListener('click',()=>this.exportJSON());
+            document.getElementById('genNow').addEventListener('click',()=>{this.generate(document.getElementById('genSize').value)});
+            document.getElementById('exportJSON2').addEventListener('click',()=>this.exportJSON());
+            document.getElementById('importJSON').addEventListener('click',()=>this.importJSON());
+
+            // Inventory
+            document.getElementById('addRow').addEventListener('click',()=>this.addInventoryRow());
+            document.getElementById('exportCSV').addEventListener('click',()=>this.exportCSV());
+            document.getElementById('search').addEventListener('input',()=>this.renderInventory());
+        }
+        _bindCanvas() {
+            const c=this.canvas; const onPos=(e)=>{const r=c.getBoundingClientRect(); return {x:(e.clientX-r.left - this.camera.x)/this.camera.z, y:(e.clientY-r.top - this.camera.y)/this.camera.z};};
+            c.addEventListener('mousedown',(e)=>{const p=onPos(e); const n=this._nodeAt(p.x,p.y); if(n){this.drag.node=n;} else {this.drag.panning=true;} this.drag.lastX=e.clientX; this.drag.lastY=e.clientY;});
+            addEventListener('mousemove',(e)=>{if(this.drag.node){const dx=(e.clientX-this.drag.lastX)/this.camera.z; const dy=(e.clientY-this.drag.lastY)/this.camera.z; this.drag.node.x+=dx; this.drag.node.y+=dy;} else if(this.drag.panning){this.camera.x+=e.clientX-this.drag.lastX; this.camera.y+=e.clientY-this.drag.lastY;} this.drag.lastX=e.clientX; this.drag.lastY=e.clientY;});
+            addEventListener('mouseup',()=>{this.drag.node=null; this.drag.panning=false;});
+            c.addEventListener('wheel',(e)=>{e.preventDefault(); const f=e.deltaY>0?0.9:1.1; const nz=Math.max(.2,Math.min(3,this.camera.z*f)); this.camera.z=nz;});
+            c.addEventListener('click',(e)=>{const p=onPos(e); const n=this._nodeAt(p.x,p.y); if(n){this._focusInventoryRow(n.id);} });
+        }
+        _loop(t){
+            if(!this._t0){this._t0=t;}
+            const dt=(t-(this._t1||t))/1000; this._t1=t;
+            this._simulate(dt);
+            this._render();
+            // fps
+            if(t-this.fps.last>1000){ document.getElementById('m_fps').textContent=String(this.fps.frames); this.fps.frames=0; this.fps.last=t; }
+            this.fps.frames++;
+            requestAnimationFrame(tt=>this._loop(tt));
+        }
+        _simulate(dt){
+            // simple force-directed physics always on
+            const nodes=[...this.nodes.values()].filter(n=>n.visible!==false);
+            const edges=[...this.edges.values()].filter(e=>{
+                const s=this.nodes.get(e.source), t=this.nodes.get(e.target); return s&&t&&s.visible!==false&&t.visible!==false; });
+            const kRep=8000, kSpring=0.02, ideal=120, damping=0.85;
+            for(let i=0;i<nodes.length;i++){
+                for(let j=i+1;j<nodes.length;j++){
+                    const a=nodes[i], b=nodes[j]; const dx=b.x-a.x, dy=b.y-a.y; const d=Math.hypot(dx,dy)||1; const f=kRep/(d*d); const fx=f*dx/d, fy=f*dy/d; a.vx-=fx; a.vy-=fy; b.vx+=fx; b.vy+=fy;
+                }
+            }
+            for(const e of edges){
+                const a=this.nodes.get(e.source), b=this.nodes.get(e.target); const dx=b.x-a.x, dy=b.y-a.y; const d=Math.hypot(dx,dy)||1; const f=(d-ideal)*kSpring; const fx=f*dx/d, fy=f*dy/d; a.vx+=fx; a.vy+=fy; b.vx-=fx; b.vy-=fy;
+            }
+            for(const n of nodes){ n.vx=(n.vx||0)*damping; n.vy=(n.vy||0)*damping; n.x+=n.vx; n.y+=n.vy; const m=this.settings.nodeSize; n.x=Math.max(m,Math.min(this.canvas.width-m,n.x)); n.y=Math.max(m,Math.min(this.canvas.height-m,n.y)); }
+        }
+        _render(){
+            const ctx=this.ctx; ctx.clearRect(0,0,this.canvas.width,this.canvas.height); ctx.save(); ctx.translate(this.camera.x,this.camera.y); ctx.scale(this.camera.z,this.camera.z);
+            // edges
+            ctx.lineWidth=2; for(const e of this.edges.values()){ const a=this.nodes.get(e.source), b=this.nodes.get(e.target); if(!a||!b||a.visible===false||b.visible===false) continue; ctx.strokeStyle=e.type==='protocol'? '#94a3b8' : '#06b6d4'; ctx.setLineDash(e.type==='protocol'?[5,6]:[]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+            ctx.setLineDash([]);
+            // nodes
+            for(const n of this.nodes.values()){ if(n.visible===false) continue; this._drawNode(n); if(this.labels){ ctx.fillStyle='#e5e7eb'; ctx.font='12px Inter, Arial'; ctx.textAlign='center'; ctx.fillText(n.label, n.x, n.y+this.settings.nodeSize/2+14); } }
+            ctx.restore();
+        }
+        _drawNode(n){
+            const ctx=this.ctx; const size=this.settings.nodeSize; const r=size/2; // base
+            // glow ring for status
+            ctx.beginPath(); ctx.arc(n.x,n.y,r+4,0,Math.PI*2); ctx.strokeStyle=n.status==='online'? 'rgba(16,185,129,.6)':'rgba(239,68,68,.6)'; ctx.lineWidth=2; ctx.stroke();
+            // core
+            ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.fillStyle=this._colorByType(n.type); ctx.fill();
+            // inner plate to enhance contrast on dark theme
+            ctx.beginPath(); ctx.arc(n.x,n.y,r*0.7,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fill();
+            // icon (dark-theme IT silhouette)
+            this._icon(n);
+        }
+        _icon(n){
+            const ctx=this.ctx; const s=this.settings.nodeSize*0.45; ctx.save(); ctx.translate(n.x,n.y); ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#e5e7eb'; ctx.lineWidth=1.6; ctx.lineJoin='round';
+            switch(n.type){
+                case 'router': // chassis + antennas
+                    ctx.strokeRect(-s*0.6,-s*0.15,s*1.2,s*0.3); ctx.beginPath(); ctx.moveTo(-s*0.35,-s*0.15); ctx.lineTo(-s*0.35,-s*0.6); ctx.moveTo(0,-s*0.15); ctx.lineTo(0,-s*0.55); ctx.moveTo(s*0.35,-s*0.15); ctx.lineTo(s*0.35,-s*0.6); ctx.stroke(); ctx.fillStyle='#10b981'; ctx.fillRect(-s*0.2,0,s*0.12,s*0.08); ctx.fillRect(s*0.05,0,s*0.12,s*0.08); break;
+                case 'switch': // rack with ports
+                    ctx.strokeRect(-s*0.7,-s*0.25,s*1.4,s*0.5); for(let i=0;i<6;i++){ ctx.strokeRect(-s*0.55+i*(s*0.18),-s*0.1,s*0.1,s*0.08);} break;
+                case 'firewall': // shield
+                    ctx.beginPath(); ctx.moveTo(0,-s*0.7); ctx.lineTo(-s*0.55,-s*0.25); ctx.lineTo(-s*0.55,s*0.25); ctx.lineTo(0,s*0.7); ctx.lineTo(s*0.55,s*0.25); ctx.lineTo(s*0.55,-s*0.25); ctx.closePath(); ctx.stroke(); ctx.fillStyle='rgba(239,68,68,.9)'; ctx.fill(); break;
+                case 'server': // tower with bays
+                    ctx.strokeRect(-s*0.45,-s*0.7,s*0.9,s*1.4); for(let i=0;i<3;i++){ const y=-s*0.5+i*s*0.45; ctx.strokeRect(-s*0.4,y,s*0.8,s*0.25);} break;
+                case 'workstation': // monitor
+                    ctx.strokeRect(-s*0.7,-s*0.5,s*1.4,s*0.9); ctx.beginPath(); ctx.moveTo(0,s*0.4); ctx.lineTo(0,s*0.65); ctx.moveTo(-s*0.35,s*0.65); ctx.lineTo(s*0.35,s*0.65); ctx.stroke(); break;
+                case 'mobile': // phone
+                    ctx.strokeRect(-s*0.35,-s*0.7,s*0.7,s*1.4); ctx.beginPath(); ctx.arc(0,s*0.55,s*0.06,0,Math.PI*2); ctx.stroke(); break;
+                case 'encryptor': // lock
+                    ctx.strokeRect(-s*0.6,-s*0.25,s*1.2,s*0.5); ctx.beginPath(); ctx.arc(0,-s*0.1,s*0.25,Math.PI,0); ctx.stroke(); break;
+                default: // dot
+                    ctx.beginPath(); ctx.arc(0,0,s*0.3,0,Math.PI*2); ctx.fill(); break;
+            }
+            ctx.restore();
+        }
+        _colorByType(t){
+            return ({router:'#1d4ed8', switch:'#0f766e', firewall:'#b45309', server:'#6d28d9', workstation:'#b91c1c', mobile:'#7c3aed', encryptor:'#991b1b'})[t] || '#334155';
+        }
+        _nodeAt(x,y){ for(const n of this.nodes.values()){ if(n.visible===false) continue; const dx=x-n.x, dy=y-n.y; if(Math.hypot(dx,dy)<=this.settings.nodeSize/2) return n; } return null; }
+        applyLayout(){ /* simple reposition for non-force layouts */
+            const nodes=[...this.nodes.values()].filter(n=>n.visible!==false);
+            const W=this.canvas.width, H=this.canvas.height; const pad=60;
+            if(this.settings.layout==='circular'){
+                const R=Math.min(W,H)/2 - pad; nodes.forEach((n,i)=>{const a=2*Math.PI*i/nodes.length; n.x=W/2+R*Math.cos(a); n.y=H/2+R*Math.sin(a); n.vx=n.vy=0;});
+            } else if(this.settings.layout==='grid'){
+                const cols=Math.ceil(Math.sqrt(nodes.length)); const cellW=(W-2*pad)/cols; const cellH=(H-2*pad)/cols; nodes.forEach((n,i)=>{const c=i%cols, r=Math.floor(i/cols); n.x=pad+c*cellW+cellW/2; n.y=pad+r*cellH+cellH/2; n.vx=n.vy=0;});
+            } else if(this.settings.layout==='radial'){
+                const center=nodes[0]; if(center){ center.x=W/2; center.y=H/2; } const per=Math.max(1,Math.ceil((nodes.length-1)/8)); let idx=1; for(let ring=1; idx<nodes.length; ring++){ const R=ring*90; for(let k=0;k<per && idx<nodes.length; k++, idx++){ const a=2*Math.PI*k/per; nodes[idx].x=W/2+R*Math.cos(a); nodes[idx].y=H/2+R*Math.sin(a); nodes[idx].vx=nodes[idx].vy=0; } }
+            } else if(this.settings.layout==='tree'){
+                const levels=Math.ceil(Math.log2(nodes.length+1)); const levelH=(H-2*pad)/levels; let i=0; for(let lv=0; lv<levels; lv++){ const count=Math.min(2**lv, nodes.length-i); const gap=(W-2*pad)/(count+1); for(let j=0;j<count && i<nodes.length;j++,i++){ const n=nodes[i]; n.x=pad+(j+1)*gap; n.y=pad+lv*levelH; n.vx=n.vy=0; } }
+            }
+        }
+        applyFilter(){ const t=this.settings.typeFilter; for(const n of this.nodes.values()){ n.visible = (t==='all' || n.type===t); } }
+        generate(size='medium'){
+            this.clear(false);
+            const sizes={small:[10,20], medium:[25,40], large:[60,90]}; const [a,b]=sizes[size]||sizes.medium; const count=a+Math.floor(Math.random()*(b-a+1));
+            const types=['router','switch','firewall','server','workstation','mobile','encryptor'];
+            const positions=this._positions(count);
+            for(let i=0;i<count;i++){
+                const type=types[Math.floor(Math.random()*types.length)];
+                const n={ id:'n'+i, label:type.toUpperCase()+'-'+String(i).padStart(2,'0'), type, status: Math.random()>.15? 'online':'offline', ip:`192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`, mac:this._mac(), x:positions[i].x, y:positions[i].y, vx:0, vy:0, visible:true };
+                this.nodes.set(n.id,n);
+            }
+            const arr=[...this.nodes.values()]; const phys=Math.floor(count*0.9); const prot=Math.floor(count*0.6);
+            for(let i=0;i<phys;i++){ const a=arr[Math.floor(Math.random()*arr.length)], b=arr[Math.floor(Math.random()*arr.length)]; if(a.id===b.id) continue; const id=`${a.id}-${b.id}`; if(this.edges.has(id)) continue; this.edges.set(id,{id, source:a.id, target:b.id, type:'physical'}); }
+            for(let i=0;i<prot;i++){ const a=arr[Math.floor(Math.random()*arr.length)], b=arr[Math.floor(Math.random()*arr.length)]; if(a.id===b.id) continue; const id=`${a.id}-${b.id}-p`; if(this.edges.has(id)) continue; this.edges.set(id,{id, source:a.id, target:b.id, type:'protocol'}); }
+            this.applyLayout(); this.applyFilter(); this._toast('Network generated'); this._syncMetrics(); this.renderInventory();
+        }
+        _positions(n){ const res=[]; const min=this.settings.nodeSize*1.6; const W=this.canvas.width, H=this.canvas.height; for(let i=0;i<n;i++){ let p, tries=0; do{ p={x:Math.random()*(W-160)+80, y:Math.random()*(H-160)+80}; tries++; } while(tries<80 && res.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<min)); res.push(p);} return res; }
+        clear(toast=true){ this.nodes.clear(); this.edges.clear(); if(toast) this._toast('Cleared'); this._syncMetrics(); this.renderInventory(); }
+        exportPNG(){ const link=document.createElement('a'); link.download='network.png'; link.href=this.canvas.toDataURL('image/png'); link.click(); this._toast('PNG exported'); }
+        exportJSON(){ const data={ devices:[...this.nodes.values()], edges:[...this.edges.values()]}; const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const link=document.createElement('a'); link.download='network.json'; link.href=URL.createObjectURL(blob); link.click(); this._toast('JSON exported'); }
+        importJSON(){ const fi=document.getElementById('fileInput'); if(!fi.files[0]) return this._toast('Choose a JSON file'); const fr=new FileReader(); fr.onload=()=>{ try{ const data=JSON.parse(fr.result); this.clear(false); for(const n of data.devices||[]){ this.nodes.set(n.id,{...n, visible: n.visible!==false}); } for(const e of data.edges||[]){ this.edges.set(e.id,e); } this.applyLayout(); this.applyFilter(); this._syncMetrics(); this.renderInventory(); this._toast('JSON imported'); }catch(err){ this._toast('Invalid JSON'); } }; fr.readAsText(fi.files[0]); }
+        exportCSV(){ const rows=[["name","type","status","ip","mac","id"]]; for(const n of this.nodes.values()){ if(n.visible===false) continue; rows.push([n.label,n.type,n.status,n.ip,n.mac,n.id]); } const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.download='inventory.csv'; a.href=URL.createObjectURL(blob); a.click(); this._toast('CSV exported'); }
+        _mac(){ return Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':'); }
+        _syncMetrics(){ document.getElementById('m_totalNodes').textContent=String(this.nodes.size); document.getElementById('m_online').textContent=String([...this.nodes.values()].filter(n=>n.status==='online').length); document.getElementById('m_edges').textContent=String(this.edges.size); }
+        _toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1500); }
+
+        // Inventory UI
+        renderInventory(){ const tbody=document.querySelector('#invTable tbody'); const q=document.getElementById('search').value.toLowerCase(); const rows=[]; for(const n of this.nodes.values()){ if(q && !(n.label.toLowerCase().includes(q)||n.ip.includes(q)||n.type.includes(q))) continue; rows.push(`<tr data-id="${n.id}">
+                <td contenteditable="true" data-field="label">${n.label}</td>
+                <td>
+                    <select data-field="type" class="select">
+                        <option ${n.type==='router'?'selected':''}>router</option>
+                        <option ${n.type==='switch'?'selected':''}>switch</option>
+                        <option ${n.type==='firewall'?'selected':''}>firewall</option>
+                        <option ${n.type==='server'?'selected':''}>server</option>
+                        <option ${n.type==='workstation'?'selected':''}>workstation</option>
+                        <option ${n.type==='mobile'?'selected':''}>mobile</option>
+                        <option ${n.type==='encryptor'?'selected':''}>encryptor</option>
+                    </select>
+                </td>
+                <td><span class="badge ${n.status}">${n.status}</span></td>
+                <td contenteditable="true" data-field="ip">${n.ip}</td>
+                <td contenteditable="true" data-field="mac">${n.mac}</td>
+                <td class="actions">
+                    <button class="btn btn-small" data-act="locate">Locate</button>
+                    <button class="btn btn-small" data-act="toggle">${n.visible===false?'Show':'Hide'}</button>
+                    <button class="btn btn-small" data-act="raw">Raw</button>
+                    <button class="btn btn-small" data-act="delete">Delete</button>
+                </td>
+            </tr>`); }
+            tbody.innerHTML=rows.join('');
+            // bind row actions
+            tbody.querySelectorAll('tr').forEach(tr=>{
+                const id=tr.getAttribute('data-id');
+                tr.querySelectorAll('[contenteditable]')?.forEach(cell=>{
+                    cell.addEventListener('blur',()=>{ const field=cell.getAttribute('data-field'); const n=this.nodes.get(id); if(!n) return; n[field]=cell.textContent.trim(); if(field==='label'){} this._toast('Saved'); });
+                });
+                tr.querySelector('select[data-field="type"]').addEventListener('change',(e)=>{ const n=this.nodes.get(id); if(n){ n.type=e.target.value; this._toast('Type updated'); }});
+                tr.querySelector('[data-act="locate"]').addEventListener('click',()=>{ const n=this.nodes.get(id); if(!n) return; this.camera.x=this.canvas.width/2 - n.x*this.camera.z; this.camera.y=this.canvas.height/2 - n.y*this.camera.z; this._toast('Centered on node'); });
+                tr.querySelector('[data-act="toggle"]').addEventListener('click',(e)=>{ const n=this.nodes.get(id); if(!n) return; n.visible = n.visible===false ? true : false; e.currentTarget.textContent = n.visible? 'Hide':'Show'; this._toast(n.visible?'Shown':'Hidden'); });
+                tr.querySelector('[data-act="raw"]').addEventListener('click',()=>{ const n=this.nodes.get(id); if(!n) return; const win=window.open('', '_blank'); win.document.write(`<pre style="background:#0b1220;color:#e5e7eb;padding:16px;">${JSON.stringify(n,null,2)}</pre>`); });
+                tr.querySelector('[data-act="delete"]').addEventListener('click',()=>{ this.nodes.delete(id); // remove incident edges
+                    for(const [eid,e] of [...this.edges]){ if(e.source===id||e.target===id){ this.edges.delete(eid);} } this.renderInventory(); this._syncMetrics(); this._toast('Device removed'); });
+            });
+        }
+        addInventoryRow(){ const id='n'+Math.floor(Math.random()*1e9); const n={ id, label:'NEW-DEVICE', type:'router', status:'online', ip:'192.168.0.10', mac:this._mac(), x: this.canvas.width/2 + (Math.random()*80-40), y: this.canvas.height/2 + (Math.random()*80-40), vx:0, vy:0, visible:true }; this.nodes.set(id,n); this.renderInventory(); this._syncMetrics(); this._toast('Device added'); }
+        _focusInventoryRow(id){ const row=document.querySelector(`#invTable tr[data-id="${id}"]`); if(row){ row.scrollIntoView({behavior:'smooth', block:'center'}); row.style.outline='2px solid #06b6d4'; setTimeout(()=>row.style.outline='none',1200); }
+        }
+    }
+
+    const engine=new Engine();
+    // Seed some data
+    setTimeout(()=>engine.generate('medium'), 300);
+    </script>
+</body>
+<!-- v39 minimal build: dashboard, viz, inventory, ingest only -->
+</html>
+
